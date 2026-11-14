@@ -1,0 +1,4 @@
+Test de connexion GitHub depuis ChatGPT.
+Repository: haouala/bourse-ai-action
+Date: 2026-11-15
+Objectif: verifier la creation d'un commit via le connecteur GitHub.
