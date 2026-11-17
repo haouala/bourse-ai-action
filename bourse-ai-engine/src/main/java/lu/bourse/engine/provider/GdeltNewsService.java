@@ -29,7 +29,7 @@ public class GdeltNewsService {
    String url=UriComponentsBuilder.fromUriString(base+"/api/v2/doc/doc")
     .queryParam("query",query).queryParam("mode","ArtList").queryParam("format","json")
     .queryParam("maxrecords",max).queryParam("timespan","7d").queryParam("sort","DateDesc").build().encode().toUriString();
-   JsonNode articles=http.get(url,null).path("articles");int inserted=0,fetched=0;
+   JsonNode articles=http.get(ProviderOperation.GDELT_NEWS,url,null).path("articles");int inserted=0,fetched=0;
    if(articles.isArray())for(JsonNode a:articles){
     String link=a.path("url").asText(""),title=a.path("title").asText("");
     if(!link.startsWith("https://") && !link.startsWith("http://"))continue;

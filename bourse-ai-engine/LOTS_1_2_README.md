@@ -1,6 +1,6 @@
 # Bourse AI — Lots 1 et 2 + Europe (correctif à superposer)
 
-**Ce ZIP est un ensemble de fichiers à superposer au dépôt `haouala/bourse-ai` : il ne contient PAS tous les fichiers Java originaux.** Ne supprimez pas le code existant. Préserver les trois API MVP qui utilisent des exemples synthétiques.
+Le dépôt `haouala/bourse-ai-action` contient maintenant une classe de démarrage autonome. Les instructions de référence sont dans [CONFIGURATION.md](CONFIGURATION.md), notamment pour les compteurs persistants de quotas.
 
 ## 1. Comptes gratuits
 
@@ -29,7 +29,7 @@ mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
-`application.yml` utilise H2 volatile si on ne sélectionne pas `postgres`; les données H2 disparaissent au redémarrage. Pour les conserver, **utiliser le profil postgres**. Port par défaut : 8080, ou renseigner `SERVER_PORT=8081` dans `.env`.
+`application.yml` utilise H2 volatile si on ne sélectionne pas `postgres`; les données H2 et compteurs disparaissent au redémarrage. Pour les conserver, **utiliser le profil postgres**. Port par défaut : 8081, configurable avec `SERVER_PORT`.
 
 ## 3. Import et tests API
 
@@ -57,7 +57,7 @@ curl 'http://localhost:8081/api/v1/investment/explain/NVDA'
 
 ## 4. Données, schéma et limitations
 
-- Migrations Flyway V1 à V4 : `assets`, `market_candles`, `market_news`, `financial_facts`, `company_profiles`, `import_jobs`, `asset_provider_symbols`, `provider_price_observations`.
+- Migrations Flyway V1 à V5 : `assets`, `market_candles`, `market_news`, `financial_facts`, `company_profiles`, `import_jobs`, `asset_provider_symbols`, `provider_price_observations`, `provider_quota_locks`, `provider_api_calls`.
 - `created_time`, `updated_time` pour toutes les tables principales. Dates de marché distinctes des dates de collecte.
 - **Le modèle financier Java fournit des formules, PAS de promesse de rendement.** Le sentiment de news est pour l'instant une règle simple de mots clés en anglais, PAS une IA.
 - Une observation de marché européenne issue d'EODHD est stockée dans sa table de provenance et dans la série canonique si la date n'y figure pas déjà.
@@ -65,7 +65,7 @@ curl 'http://localhost:8081/api/v1/investment/explain/NVDA'
 - Prévoir validation qualité stricte pour splits, dividendes, taux de change, devise du titre, distinction cours ajusté/non ajusté et collisions de symboles. D'abord usage expérimental et personnel, vérifier les licences avant tout partage public ou redistribution dans l'app Android.
 - Les API ajoutées sont des routes de développement sans authentification utilisateur. **Ne pas exposer sur Internet** avant ajout d'un contrôle d'accès et de quotas.
 - Aucune connexion LLM payante ou locale n'est ajoutée : l'explication actuelle est basée sur les formules et données récupérées.
-- Pas de compilation complète faite dans cet environnement (Maven non installé) : tester `mvn clean test` et le démarrage PostgreSQL localement.
+- La suite de 16 tests passe sur H2 et PostgreSQL 17 avec des réponses fournisseurs simulées. Les clés et accès réels doivent encore être validés localement. Voir `GET /api/v1/providers/quotas` pour les réservations de cette application.
 
 ## 5. Prochaine étape Android (à conserver)
 

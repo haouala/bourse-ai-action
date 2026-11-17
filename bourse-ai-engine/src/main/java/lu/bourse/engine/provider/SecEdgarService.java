@@ -27,7 +27,7 @@ public class SecEdgarService {
   String cikValue=String.format(Locale.ROOT,"%010d",cik);
   long job=jobs.start(symbol,"SEC_EDGAR","COMPANY_FACTS");
   try{
-   JsonNode doc=http.get(base+"/api/xbrl/companyfacts/CIK"+cikValue+".json",userAgent);
+   JsonNode doc=http.get(ProviderOperation.SEC_FACTS,base+"/api/xbrl/companyfacts/CIK"+cikValue+".json",userAgent);
    // Prevent mistakenly associating another company's data with the stock.
    if(doc.path("cik").asInt(-1)!=cik)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"CIK does not match SEC response");
    int inserted=0;JsonNode gaap=doc.path("facts").path("us-gaap");

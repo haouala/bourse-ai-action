@@ -4,3 +4,5 @@
 !.env.example
 # Maven build output
 **/target/
+# JVM temporary attach files
+.attach_pid*

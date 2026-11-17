@@ -24,7 +24,7 @@ public class FmpProfileService {
   long job=jobs.start(symbol,"FMP","PROFILE");
   try{
    String url=UriComponentsBuilder.fromUriString(base+"/stable/profile").queryParam("symbol",symbol).queryParam("apikey",key).build().encode().toUriString();
-   JsonNode list=http.get(url,null);if(!list.isArray()||list.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"FMP profile unavailable for symbol/plan");
+   JsonNode list=http.get(ProviderOperation.FMP_PROFILE,url,null);if(!list.isArray()||list.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"FMP profile unavailable for symbol/plan");
    JsonNode item=list.get(0);
    if(!symbol.equalsIgnoreCase(item.path("symbol").asText()))throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Provider returned another symbol");
    Profile profile=new Profile(symbol,cut(item.path("companyName").asText(""),255),cut(item.path("exchangeFullName").asText(""),120),cut(item.path("sector").asText(""),120),cut(item.path("industry").asText(""),200),cut(item.path("website").asText(""),500),item.path("marketCap").isNumber()?item.path("marketCap").decimalValue():null,"FMP");

@@ -39,7 +39,7 @@ public class EodhdEuropeService {
    String url=UriComponentsBuilder.fromUriString(base+"/api/eod/"+providerSymbol)
     .queryParam("from",from).queryParam("to",to.minusDays(1))
     .queryParam("fmt","json").queryParam("api_token",key).build().encode().toUriString();
-   JsonNode response=http.get(url,null);
+   JsonNode response=http.get(ProviderOperation.EODHD_DAILY,url,null);
    if(!response.isArray() || response.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"EODHD returned no candles: verify free-plan symbol and access");
    List<HistoryService.PriceBar> bars=new ArrayList<>();
    for(JsonNode b:response){

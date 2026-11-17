@@ -24,7 +24,7 @@ public class TwelveDataImportService {
    String url=UriComponentsBuilder.fromUriString(base+"/time_series").queryParam("symbol",symbol).queryParam("interval","1day")
      .queryParam("start_date",today.minusYears(years)).queryParam("end_date",today)
      .queryParam("outputsize",5000).queryParam("apikey",key).build().encode().toUriString();
-   JsonNode doc=http.get(url,null),values=doc.path("values");
+   JsonNode doc=http.get(ProviderOperation.TWELVE_DAILY,url,null),values=doc.path("values");
    if(!values.isArray() || values.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"No daily candles returned; check subscription/symbol");
    String currency=doc.path("meta").path("currency").asText("USD").toUpperCase(Locale.ROOT);
    if(!currency.matches("[A-Z]{3}"))throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Invalid currency returned");
