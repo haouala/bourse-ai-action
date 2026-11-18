@@ -19,17 +19,21 @@ Ne **jamais** commiter `.env`, les secrets ou les tokens ; le `.gitignore` du co
 Ouvrir un terminal **dans `bourse-ai-engine`**. Java 21 + Maven 3.9+, Docker Compose.
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
 # éditer .env et choisir un mot de passe DB fort ; renseigner les tokens obtenus
 # pour charger les variables dans le shell qui lance Spring Boot :
 set -a; . ./.env; set +a
 
+# Installation neuve seulement : si aucun conteneur du projet n'existe sur 5434.
 docker compose up -d
+# Si bourse-postgres17 existe déjà : utiliser plutôt sudo docker start bourse-postgres17.
 mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
 `application.yml` utilise H2 volatile si on ne sélectionne pas `postgres`; les données H2 et compteurs disparaissent au redémarrage. Pour les conserver, **utiliser le profil postgres**. Port par défaut : 8081, configurable avec `SERVER_PORT`.
+
+PostgreSQL : `127.0.0.1:5434`, base `bourse_ai`, utilisateur `bourse`. Adapter le mot de passe dans `.env` sans le commiter. Voir les deux modes de démarrage dans [CONFIGURATION.md](CONFIGURATION.md).
 
 ## 3. Import et tests API
 

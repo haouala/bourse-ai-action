@@ -9,7 +9,7 @@ Les clés Twelve Data, EODHD et FMP sont lues depuis les variables d'environneme
 Dans le dossier `bourse-ai-engine`, sous Linux / Bash :
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
 # Modifier .env localement. Ne jamais commiter ce fichier.
 # Pour une valeur contenant des espaces, utiliser des guillemets simples.
 set -a
@@ -27,7 +27,43 @@ Dans IntelliJ : Run > Edit Configurations > Environment variables. Renseigner le
 
 Sans profil, H2 est une base **en mémoire** : toutes les données, y compris les compteurs de quotas, disparaissent lorsque le processus s'arrête. Ce mode sert aux essais. Ne pas l'utiliser pour les imports réels répétés : un redémarrage ferait perdre le suivi de consommation.
 
-Pour conserver les cours et les compteurs, utiliser PostgreSQL :
+Pour conserver les cours et les compteurs, utiliser le profil `postgres`. Configuration locale par défaut : **PostgreSQL 17**, hôte **127.0.0.1**, port publié **5434**, base **bourse_ai**, utilisateur **bourse**. Dans le conteneur, PostgreSQL écoute toujours sur 5432.
+
+### Conteneur déjà créé manuellement
+
+Si `bourse-postgres17` existe déjà sur ton PC, démarrer ce conteneur :
+
+```bash
+sudo docker start bourse-postgres17
+sudo docker exec bourse-postgres17 psql -U bourse -d bourse_ai -c 'SELECT version();'
+```
+
+Dans le `.env` privé, renseigner :
+
+```dotenv
+DB_URL=jdbc:postgresql://127.0.0.1:5434/bourse_ai
+DB_USER=bourse
+DB_PASSWORD='TON_MOT_DE_PASSE_EXISTANT'
+```
+
+Après modification, exporter de nouveau `.env`, puis lancer :
+
+```bash
+set -a
+. ./.env
+set +a
+mvn spring-boot:run -Dspring-boot.run.profiles=postgres
+```
+
+Utiliser le même hôte, port, nom de base et utilisateur dans DBeaver. Le mot de passe est celui défini à la création du conteneur. Modifier `.env` ne modifie pas le mot de passe d'une base déjà initialisée.
+
+### Nouvelle installation avec Docker Compose
+
+Utiliser cette option uniquement s'il n'y a pas déjà de conteneur du projet sur le port 5434. Compose utilise son propre volume `bourse_pgdata` ; il ne reprend pas automatiquement le volume du conteneur manuel `bourse17_pgdata`. Ne pas lancer les deux installations sur le même port ni supprimer un volume pour résoudre un conflit.
+
+L'image Compose est `postgres:17-bookworm` avec stockage persistant et redémarrage automatique. Utiliser un moteur Docker compatible avec les images récentes ; l'ancien Docker 19.03 peut empêcher leur initialisation. Le port publié 5434 évite les PostgreSQL locaux déjà présents sur 5432 et 5433.
+
+Pour une nouvelle installation :
 
 ```bash
 # Après l'export des variables .env, dont DB_PASSWORD :
@@ -81,7 +117,7 @@ La consultation des quotas et les autres routes GET ci-dessus lisent la base, sa
 Par défaut, `mvn clean verify` utilise H2 et un serveur fournisseur simulé. Pour exécuter les mêmes tests sur PostgreSQL, fournir une **base de test dédiée et vide** :
 
 ```bash
-export BOURSE_TEST_DB_URL='jdbc:postgresql://localhost:5432/bourse_ai_test'
+export BOURSE_TEST_DB_URL='jdbc:postgresql://127.0.0.1:5434/bourse_ai_test'
 export BOURSE_TEST_DB_USER='utilisateur_test'
 export BOURSE_TEST_DB_PASSWORD='mot_de_passe_test'
 mvn clean verify
