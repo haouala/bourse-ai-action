@@ -16,6 +16,9 @@
 | Alertes | Seuil global de perte et franchissement MACD baissier selon l’horizon de la position ; dédoublonnage et acquittement | Enregistrées et consultables en REST ; pas encore de notification push sur téléphone |
 | Graphiques | API OHLCV chronologique, indicateurs, prix d’achat et scénarios de protection/objectif | Front Android non développé ; objectif 2R illustratif, non calibré ni validé par backtests |
 | Correctif news | La date GDELT extraite est désormais stockée dans `published_time` | Analyse sémantique et recoupement encore à développer |
+| Publications sociales | Comptes suivis, autorité par sujet/date, événements communs, impact et confiance par actif, alertes de réexamen et de retrait | Classification et preuves validées manuellement ; collecteur X facultatif désactivé ; autres collecteurs et score global à développer |
+
+Le module social et son calcul sont détaillés dans [SOCIAL_SIGNALS.md](SOCIAL_SIGNALS.md). Les entrées, preuves et scores sont décrits dans [DATABASE.md](DATABASE.md), migration V7.
 
 ## Architecture du traitement
 
@@ -144,7 +147,7 @@ mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
-La migration V6 s’applique automatiquement avec Flyway. Les migrations V1 à V5 ne sont pas modifiées. La planification reste arrêtée tant que `MARKET_SCHEDULER_ENABLED` n’est pas `true`. Le profil PostgreSQL et les variables de connexion doivent être chargés selon `CONFIGURATION.md`.
+Les migrations V6 et V7 s’appliquent automatiquement avec Flyway. Les migrations V1 à V5 ne sont pas modifiées. La planification reste arrêtée tant que `MARKET_SCHEDULER_ENABLED` n’est pas `true`. Le profil PostgreSQL et les variables de connexion doivent être chargés selon `CONFIGURATION.md`. La collecte X reste indépendante, désactivée par défaut, sans planification dans ce lot.
 
 Pour activer volontairement les appels périodiques : renseigner la clé Twelve Data, vérifier les marchés et quotas, puis définir `MARKET_SCHEDULER_ENABLED=true`. Le rythme de traitement dépend de `MARKET_WORKER_DELAY_MS` et des limites locales. Avec une offre gratuite, des tâches peuvent rester différées ; le logiciel ne garantit pas la couverture des 130 actifs toutes les quinze minutes.
 
@@ -155,6 +158,7 @@ Pour activer volontairement les appels périodiques : renseigner la clé Twelve 
 3. Automatiser les taux de change et la valorisation EUR des actions américaines ; améliorer les contrôles de retard et la gestion hors séance.
 4. Définir et tester les règles de protection, cibles de prix et ventes selon les horizons ; ajouter des backtests sans anticipation, frais et glissement inclus.
 5. Intégrer le correctif podcasts déjà testé séparément, puis les extractions financières et le scoring global expliqué.
+   Pour le module social déjà présent : automatiser la classification et le regroupement des événements, confirmer les sources, ajouter les collecteurs manquants et calibrer les scores.
 6. Développer le front Android, les graphiques interactifs et les notifications push, avec authentification avant exposition réseau.
 
 Aucune performance d’investissement n’est démontrée par ces tests logiciels. Aucun ordre de marché n’est transmis. Le budget de perte est un déclencheur de suivi et ne garantit pas un plafond d’exécution réel.

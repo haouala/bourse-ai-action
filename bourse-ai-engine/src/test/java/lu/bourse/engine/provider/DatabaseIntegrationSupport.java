@@ -10,7 +10,7 @@ public abstract class DatabaseIntegrationSupport {
 
     @org.junit.jupiter.api.BeforeEach
     void clearDependentTables() {
-        for(String table:new String[]{"trade_alerts","portfolio_risk_snapshots","position_marks","position_trades","positions","portfolios","market_sync_tasks","watchlist"})
+        for(String table:new String[]{"social_impact_scores","social_asset_assessments","social_event_publications","social_events","social_publications","actor_influence_profiles","social_api_reservations","social_actors","trade_alerts","portfolio_risk_snapshots","position_marks","position_trades","positions","portfolios","market_sync_tasks","watchlist"})
             cleanup.update("DELETE FROM "+table);
     }
     @DynamicPropertySource

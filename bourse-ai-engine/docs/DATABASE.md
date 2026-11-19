@@ -1,6 +1,6 @@
 # Base de données Bourse AI
 
-Schéma réel après application de Flyway V1 à V6 sur PostgreSQL 17.7, le 19 novembre 2026. Les 19 tables et 179 colonnes ci-dessous sont extraites de cette base de test ; leur rôle correspond au code livré. Le document d’analyse Word/PDF reste inchangé.
+Schéma réel après application de Flyway V1 à V7 sur PostgreSQL 17.7, le 19 novembre 2026. Les 28 tables et 251 colonnes ci-dessous sont extraites de cette base de test ; leur rôle correspond au code livré. Le document d’analyse Word/PDF reste inchangé.
 
 ## Données de marché
 
@@ -40,7 +40,7 @@ flowchart TD
     Q[provider_quota_locks] --> C[provider_api_calls]
 ```
 
-Les tables existantes V1 à V5 sont conservées. V6 ajoute le suivi, les positions et les alertes, ainsi qu’un verrou technique de capacité. Aucun mot de passe ni token fournisseur n’est stocké dans ces tables.
+Les tables existantes V1 à V5 sont conservées. V6 ajoute le suivi, les positions et les alertes, ainsi qu’un verrou technique de capacité. V7 ajoute neuf tables pour les publications sociales, les événements, leurs scores et le plafond de collecte X. Aucun mot de passe ni token fournisseur n’est stocké dans ces tables.
 
 ## Conventions
 
@@ -233,7 +233,7 @@ Avis de révision ou alerte globale, conservés jusqu’à consultation et acqui
 | `portfolio_id` | `bigint` | Oui | Référence vers portfolios.id ; rattache la donnée au portefeuille. |
 | `position_id` | `bigint` | Non | Référence vers positions.id ; peut être absent pour une alerte globale. |
 | `event_key` | `character varying(180)` | Oui | Clé unique de dédoublonnage de l’événement ou de l’épisode de dépassement. |
-| `alert_type` | `character varying(40)` | Oui | LOSS_LIMIT ou MACD_REVIEW dans cette version. |
+| `alert_type` | `character varying(40)` | Oui | LOSS_LIMIT, MACD_REVIEW, SOCIAL_EVENT_REVIEW ou SOCIAL_EVENT_CORRECTION. |
 | `message` | `character varying(1500)` | Oui | Motif explicatif destiné à l’interface ; n’exécute pas de vente. |
 | `data_time` | `timestamp with time zone` | Oui | Date des données qui ont déclenché l’avis. |
 | `status` | `character varying(20)` | Oui | État métier ou technique, dont les valeurs sont précisées sous la table. |
@@ -403,6 +403,174 @@ Verrou technique unique qui sérialise les modifications et créations de tâche
 
 
 
+## Publications sociales et événements (V7)
+
+```mermaid
+flowchart TD
+    A[social_actors] --> P[actor_influence_profiles]
+    A --> S[social_publications]
+    S --> L[social_event_publications]
+    E[social_events] --> L
+    E --> V[social_asset_assessments]
+    X[assets] --> V
+    V --> C[social_impact_scores]
+```
+
+Une même annonce reçoit une évaluation par actif. Les notes historiques conservent leurs entrées ; le texte original et la date de collecte permettent de distinguer publication et disponibilité réelle. Le fonctionnement, les limites et les exemples d’API sont détaillés dans [SOCIAL_SIGNALS.md](SOCIAL_SIGNALS.md).
+
+### social_actors
+
+Compte suivi d’une personne ou d’une organisation. Un même acteur sur deux réseaux utilise deux lignes dans ce prototype.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant interne du compte suivi. |
+| `display_name` | `character varying(160)` | Oui | Nom affiché, configuré manuellement. |
+| `role_label` | `character varying(160)` | Oui | Fonction ou rôle descriptif ; l’autorité historique est précisée dans les profils. |
+| `platform` | `character varying(24)` | Oui | X, TRUTH_SOCIAL, LINKEDIN, YOUTUBE, OFFICIAL_WEB ou OTHER ; seul X possède un collecteur automatique. |
+| `account_id` | `character varying(100)` | Oui | Identifiant du compte sur la plateforme ; numérique sur X. |
+| `identity_confirmed` | `boolean` | Oui | Identité déclarée vérifiée par une personne ; faux par défaut. |
+| `identity_evidence_url` | `character varying(1500)` | Non | URL HTTPS justifiant l’identité ; obligatoire si identité confirmée. |
+| `last_post_id` | `character varying(24)` | Non | Plus grand identifiant X complètement parcouru ; curseur since_id. |
+| `pending_page_token` | `character varying(2000)` | Non | Jeton de pagination du parcours en cours ; absent après la dernière page. |
+| `pending_high_water_id` | `character varying(24)` | Non | Plus grand identifiant rencontré pendant le parcours ; ne devient last_post_id qu’à la fin. |
+| `last_sync_at` | `timestamp with time zone` | Non | Dernière page collectée avec succès. |
+| `created_time` | `timestamp with time zone` | Oui | Instant de création de la ligne en base. |
+| `updated_time` | `timestamp with time zone` | Oui | Instant de dernière modification de la ligne en base. |
+
+Unicité (platform, account_id). Aucune clé API stockée. Les états des curseurs sont modifiés sous verrou du compte.
+
+### actor_influence_profiles
+
+Autorité de l’auteur sur un sujet, applicable pendant une période définie.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant du profil. |
+| `actor_id` | `bigint` | Oui | Clé étrangère vers social_actors. |
+| `topic` | `character varying(30)` | Oui | TARIFFS, MONETARY_POLICY, CORPORATE, CRYPTO ou GENERAL. |
+| `authority_score` | `integer` | Oui | Influence configurée entre 0 et 100 ; ce n’est pas une mesure automatique de compétence. |
+| `valid_from` | `timestamp with time zone` | Oui | Début inclus de la période d’autorité. |
+| `valid_until` | `timestamp with time zone` | Non | Fin exclue, facultative ; doit être postérieure au début. |
+| `rationale` | `character varying(1500)` | Oui | Justification humaine du niveau et de la période. |
+| `created_time` | `timestamp with time zone` | Oui | Instant de création de la ligne en base. |
+
+Le service refuse les périodes qui se chevauchent pour le même acteur et le même sujet, sous verrou de l’acteur. Pas de repli automatique vers GENERAL.
+
+### social_publications
+
+Publications collectées ou ingérées ; texte d’origine conservé.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant interne de la publication. |
+| `actor_id` | `bigint` | Oui | Clé étrangère vers le compte suivi. |
+| `external_id` | `character varying(100)` | Oui | Identifiant stable de la publication sur sa plateforme. |
+| `content` | `text` | Oui | Texte source, jusqu’à 30 000 caractères via le service ; aucun audio ou média traité. |
+| `source_url` | `character varying(1500)` | Oui | Lien HTTPS vers l’original. |
+| `published_at` | `timestamp with time zone` | Oui | Instant de publication déclaré par la source ; ne peut pas être futur à l’ingestion. |
+| `collected_at` | `timestamp with time zone` | Oui | Instant réel d’ingestion dans l’application. |
+| `retracted` | `boolean` | Oui | Drapeau réservé aux retraits individuels ; l’API de ce lot gère le retrait au niveau événement. |
+| `created_time` | `timestamp with time zone` | Oui | Instant de création de la ligne en base. |
+
+Unicité (actor_id, external_id). Un rejeu identique retourne la ligne existante. Une modification du même identifiant est refusée pour préserver l’original ; une nouvelle version doit utiliser un nouvel identifiant.
+
+### social_events
+
+Événement économique commun à une ou plusieurs publications.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant interne de l’événement. |
+| `canonical_key` | `character varying(180)` | Oui | Clé canonique choisie à la classification pour regrouper les reprises. |
+| `title` | `character varying(300)` | Oui | Libellé de l’événement. |
+| `topic` | `character varying(30)` | Oui | Sujet utilisé pour sélectionner les profils d’autorité. |
+| `event_kind` | `character varying(24)` | Oui | ANNOUNCEMENT, RUMOR, ENACTED, OPINION ou RETRACTION. |
+| `confirmation` | `character varying(24)` | Oui | UNCONFIRMED, AUTHOR_STATEMENT, CORROBORATED ou OFFICIAL_DOCUMENT ; validation manuelle. |
+| `evidence_url` | `character varying(1500)` | Oui | URL HTTPS de la preuve ou source de confirmation. |
+| `retracted` | `boolean` | Oui | Vrai si l’événement est retiré : impact et confiance recalculés à zéro. |
+| `revision` | `integer` | Oui | Version de l’événement ; augmente à la révision et au rattachement d’une nouvelle source. |
+| `created_time` | `timestamp with time zone` | Oui | Instant de création de la ligne en base. |
+| `updated_time` | `timestamp with time zone` | Oui | Instant de dernière modification de la ligne en base. |
+
+Unicité canonical_key. Une reprise doit être explicitement rattachée au bon événement ; aucun regroupement sémantique automatique n’est encore effectué. La version et ses entrées sont conservées dans chaque score.
+
+### social_event_publications
+
+Association entre événements et publications, sans recopier le texte.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `event_id` | `bigint` | Oui | Clé étrangère vers social_events. |
+| `publication_id` | `bigint` | Oui | Clé étrangère vers social_publications. |
+
+Clé primaire composée (event_id, publication_id). Une publication peut concerner plusieurs événements ; une reprise ne crée pas un nouvel événement automatiquement.
+
+### social_asset_assessments
+
+Interprétation économique courante d’un événement pour un actif précis.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant de l’évaluation. |
+| `event_id` | `bigint` | Oui | Clé étrangère vers social_events. |
+| `asset_id` | `bigint` | Oui | Clé étrangère vers assets ; action ou crypto. |
+| `direction` | `character varying(12)` | Oui | POSITIVE, NEGATIVE, MIXED ou UNKNOWN ; hypothèse explicitée. |
+| `materiality` | `integer` | Oui | Importance économique estimée de 0 à 100. |
+| `relevance` | `integer` | Oui | Exposition de l’actif à l’événement, de 0 à 100. |
+| `novelty` | `integer` | Oui | Nouveauté estimée, de 0 à 100. |
+| `analyst_confidence` | `integer` | Oui | Confiance d’entrée de 0 à 100, plafonnée par identité et confirmation au calcul. |
+| `horizon` | `character varying(12)` | Oui | INTRADAY, DAYS, MONTHS ou YEARS : horizon de l’effet, pas de vente obligatoire. |
+| `rationale` | `character varying(2000)` | Oui | Justification de l’exposition et du sens ; saisie structurée manuelle. |
+| `assessed_at` | `timestamp with time zone` | Oui | Instant de la dernière classification de cet actif. |
+
+Unicité (event_id, asset_id). Une mise à jour remplace l’évaluation courante, mais chaque calcul en conserve une copie dans son instantané d’audit.
+
+### social_impact_scores
+
+Historique des calculs explicables par événement et actif.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant unique du calcul. |
+| `assessment_id` | `bigint` | Oui | Clé étrangère vers l’évaluation de l’actif. |
+| `event_revision` | `integer` | Oui | Version de l’événement utilisée lors du calcul. |
+| `scored_at` | `timestamp with time zone` | Oui | Instant auquel le score était réellement disponible ; référence de disponibilité en backtest. |
+| `authority_score` | `integer` | Oui | Maximum des autorités applicables au sujet et à la date des publications actives. |
+| `potential_impact` | `numeric(8,4)` | Oui | Impact non signé de 0 à 100 après exposition et décroissance temporelle. |
+| `confidence_score` | `integer` | Oui | Confiance plafonnée de 0 à 95 dans ce modèle ; pas une probabilité calibrée. |
+| `signed_score` | `numeric(8,4)` | Non | Impact signé multiplié par confiance/100 ; NULL si sens MIXED ou UNKNOWN. |
+| `method` | `character varying(48)` | Oui | Version du modèle : SOCIAL_EVENT_V1_HEURISTIC. |
+| `input_snapshot` | `text` | Oui | JSON texte des entrées, preuves, profils, dates, rôle, justification et coefficients ; clés SQL normalisées. |
+| `review_only` | `boolean` | Oui | Vrai dans ce lot ; aucune exécution courtier. |
+
+Plusieurs calculs sont conservés par évaluation. Ne pas les sommer : le dernier id représente la dernière photographie. Les reprises n’additionnent pas l’autorité. Le recalcul temporel est explicite, sans planification sociale.
+
+### social_api_guard
+
+Verrou singleton sérialisant les réservations de lectures X.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `integer` | Oui | Clé primaire singleton égale à 1. |
+
+SELECT FOR UPDATE avant le comptage et la réservation. Le verrou est partagé par les instances qui utilisent la même base.
+
+### social_api_reservations
+
+Réservations conservatrices du plafond de collecte X, persistantes même en cas d’échec réseau.
+
+| Colonne | Type PostgreSQL | Obligatoire | Signification |
+|---|---|---|---|
+| `id` | `bigint` | Oui | Identifiant de la tentative réservée. |
+| `actor_id` | `bigint` | Oui | Clé étrangère vers le compte X ciblé. |
+| `month_key` | `character varying(7)` | Oui | Mois civil UTC au format YYYY-MM ; indépendant du cycle de facturation fournisseur. |
+| `reserved_posts` | `integer` | Oui | Cinq lectures réservées par tentative, avant tout appel HTTP. |
+| `fetched_posts` | `integer` | Non | Nombre de publications dans la page réussie ; NULL si l’appel ou la page a échoué. |
+| `reserved_at` | `timestamp with time zone` | Oui | Instant de réservation dans une transaction indépendante. |
+
+Somme reserved_posts du mois comparée à SOCIAL_X_MONTHLY_POST_LIMIT. Les réservations ne sont pas remboursées sur une page vide ou un échec ; ce compteur ne garantit pas une facture maximale en euros.
+
 ## Entretien du schéma
 
-Toute évolution future doit utiliser une nouvelle migration Flyway. Ne pas modifier V1 à V5 déjà appliquées. V6 n’est pas appliquée à la base du PC de l’utilisateur par ce travail ; elle le sera lors du démarrage de la nouvelle version avec le bon profil PostgreSQL. Les tests utilisent une base isolée.
+Toute évolution future doit utiliser une nouvelle migration Flyway. Ne pas modifier les migrations déjà appliquées. Les migrations V6 et V7 ne sont pas appliquées à la base du PC de l’utilisateur par ce travail ; elles le seront lors du démarrage de la nouvelle version avec le bon profil PostgreSQL. Les tests utilisent une base isolée.

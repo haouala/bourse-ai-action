@@ -1,5 +1,11 @@
 server:
   port: ${SERVER_PORT:8081}
+social:
+  x:
+    enabled: ${SOCIAL_X_ENABLED:false}
+    bearer-token: ${SOCIAL_X_BEARER_TOKEN:}
+    monthly-post-limit: ${SOCIAL_X_MONTHLY_POST_LIMIT:0}
+    base-url: https://api.x.com
 spring:
   application:
     name: bourse-ai-engine
