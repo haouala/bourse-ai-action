@@ -38,7 +38,7 @@ public class GdeltNewsService {
     Instant time=parseTime(a.path("seendate").asText(""));
     String source=a.path("domain").asText("GDELT");
     try {jdbc.update("INSERT INTO market_news(asset_id,source,title,url,published_time,sentiment_score,sentiment_method,source_country,language,region_tag) VALUES (?,?,?,?,?,?,?,?,?,?)",
-       asset.getId(),cut(source,120),cut(title,1500),cut(link,2000),null,null,null,cut(a.path("sourcecountry").asText(""),10),cut(a.path("language").asText(""),20),null);inserted++;}
+       asset.getId(),cut(source,120),cut(title,1500),cut(link,2000),time==null?null:Timestamp.from(time),null,null,cut(a.path("sourcecountry").asText(""),10),cut(a.path("language").asText(""),20),null);inserted++;}
     catch(org.springframework.dao.DuplicateKeyException ignored){}
    }
    jobs.end(job,inserted,null);return new NewsSyncResult(symbol,inserted,fetched);
@@ -52,3 +52,4 @@ public class GdeltNewsService {
  private static Instant parseTime(String raw){try{return LocalDateTime.parse(raw,DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")).toInstant(ZoneOffset.UTC);}catch(Exception e){return null;}}
  private static String validate(String x){if(x==null||!x.matches("[A-Za-z0-9._-]{1,40}"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol");return x.toUpperCase(Locale.ROOT);}
 }
+

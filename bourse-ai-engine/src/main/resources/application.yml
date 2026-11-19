@@ -27,6 +27,10 @@ engine:
   risk-per-trade-eur: 5
 
 market:
+  scheduler:
+    enabled: ${MARKET_SCHEDULER_ENABLED:false}
+    worker-delay-ms: ${MARKET_WORKER_DELAY_MS:10000}
+    monitor-delay-ms: ${PORTFOLIO_MONITOR_DELAY_MS:60000}
   quotas:
     providers:
       TWELVE_DATA:
@@ -52,3 +56,4 @@ market:
   eodhd:
     base-url: https://eodhd.com
     api-key: ${EODHD_API_KEY:}
+

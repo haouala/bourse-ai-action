@@ -5,6 +5,14 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /** Run the same suite against a dedicated PostgreSQL test DB when explicitly configured. */
 public abstract class DatabaseIntegrationSupport {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate cleanup;
+
+    @org.junit.jupiter.api.BeforeEach
+    void clearDependentTables() {
+        for(String table:new String[]{"trade_alerts","portfolio_risk_snapshots","position_marks","position_trades","positions","portfolios","market_sync_tasks","watchlist"})
+            cleanup.update("DELETE FROM "+table);
+    }
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         String url = System.getenv("BOURSE_TEST_DB_URL");
@@ -16,3 +24,4 @@ public abstract class DatabaseIntegrationSupport {
         }
     }
 }
+

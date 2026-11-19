@@ -33,6 +33,7 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
     private static final AtomicInteger responseStatus = new AtomicInteger(200);
     private static final AtomicReference<String> responseBody = new AtomicReference<>("[]");
     private static final AtomicReference<String> redirect = new AtomicReference<>();
+    private static final AtomicReference<String> requestQuery = new AtomicReference<>();
     private static final HttpServer server = startServer();
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
@@ -42,6 +43,7 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
             HttpServer stub = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             stub.createContext("/", exchange -> {
                 calls.incrementAndGet();
+                requestQuery.set(exchange.getRequestURI().getRawQuery());
                 byte[] body = responseBody.get().getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 if (redirect.get() != null) exchange.getResponseHeaders().set("Location", redirect.get());
@@ -90,7 +92,7 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
         mvc.perform(get("/api/v1/history/analysis/NVDA"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.candleCount").value(40));
 
-        responseBody.set("{\"articles\":[{\"url\":\"https://example.com/earnings\",\"title\":\"NVIDIA raises guidance\",\"domain\":\"example.com\"}]}");
+        responseBody.set("{\"articles\":[{\"url\":\"https://example.com/earnings\",\"title\":\"NVIDIA raises guidance\",\"domain\":\"example.com\",\"seendate\":\"20261118T143000Z\"}]}");
         mvc.perform(post("/api/v1/providers/gdelt/sync/NVDA"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.inserted").value(1));
         mvc.perform(post("/api/v1/news/analyze/NVDA"))
@@ -98,7 +100,8 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
         mvc.perform(get("/api/v1/investment/explain/NVDA"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.verdict").value("REVIEW_ONLY"))
                 .andExpect(jsonPath("$.technical.candleCount").value(40))
-                .andExpect(jsonPath("$.news[0].sentimentScore").value(1));
+                .andExpect(jsonPath("$.news[0].sentimentScore").value(1))
+                .andExpect(jsonPath("$.news[0].publishedTime").value("2026-11-18T14:30:00Z"));
         var usage = mvc.perform(get("/api/v1/providers/quotas")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].dailyUsed").value(2)).andReturn().getResponse().getContentAsString();
         assertThat(usage).doesNotContain("test-only-secret", "apikey");
@@ -119,6 +122,16 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$[1].dailyUsed").value(1))
                 .andExpect(jsonPath("$[2].dailyUsed").value(1));
         assertThat(calls.get()).isEqualTo(2);
+    }
+
+    @Test
+    void eodhdRequestedDepthAndCryptoTypeAreConfigurableWithoutClaimingFullCoverage() throws Exception {
+        responseBody.set("[{\"date\":\"2020-01-05\",\"open\":100,\"high\":102,\"low\":99,\"close\":101,\"volume\":1000}]");
+        mvc.perform(post("/api/v1/providers/eodhd/sync/BTC-USD").param("providerSymbol","BTC-USD.CC").param("currency","USD").param("assetType","CRYPTO").param("years","10"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.observations").value(1))
+                .andExpect(jsonPath("$.coverageNotice").value(org.hamcrest.Matchers.containsString("Requested 10 years")));
+        assertThat(requestQuery.get()).contains("from="+LocalDate.now(java.time.ZoneOffset.UTC).minusYears(10));
+        assertThat(jdbc.queryForObject("SELECT asset_type FROM assets WHERE symbol='BTC-USD'",String.class)).isEqualTo("CRYPTO");
     }
 
     @Test
@@ -178,3 +191,4 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
         return "{\"meta\":{\"currency\":\"USD\",\"name\":\"NVIDIA\"},\"values\":[" + bars + "]}";
     }
 }
+
