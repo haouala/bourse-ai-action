@@ -1,5 +1,11 @@
 # Bourse AI
 
+## Batch Python de démonstration
+
+Le module [bourse-ai-ml](bourse-ai-ml/README.md) tourne séparément de Java, sur la même base **PostgreSQL**, dans son schéma `bourse_ml`. Il génère des données fictives, apprend des coefficients avec validation chronologique, enregistre des modèles candidats et exporte ses rapports. Aucun token fournisseur ou IA n'est requis ; les poids actifs et la limite de perte ne sont pas modifiés.
+
+Branche : `feature/ml-batch-demo`, basée sur le backend V8. La base H2 par défaut n'est pas partagée. Voir le guide pour les commandes PowerShell/Linux, les variables PG*, les six tables et les limites des données synthétiques.
+
 Backend Java 21 / Spring Boot dans `bourse-ai-engine`.
 
 Voir [la configuration et les quotas](bourse-ai-engine/CONFIGURATION.md) pour le lancement, les clés privées, PostgreSQL et les tests.

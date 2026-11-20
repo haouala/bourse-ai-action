@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from bourse_ai_ml.demo import generate, stress_tag
 from bourse_ai_ml.domain import DatasetSpec, FEATURES, DataError, utc, validate, canonical
-from bourse_ai_ml.training import FOLDS, partition, fit_fold, predict_json, metrics
+from bourse_ai_ml.training import FOLDS, partition, fit_fold, predict_json, metrics, train
 
 
 @pytest.fixture(scope="module")
@@ -104,3 +104,10 @@ def test_empty_prediction_bins_are_null_and_returns_are_not_compounded(rows):
     assert result['model_selection']['mean_net_return'] is None
     assert result['reliability_bins'][0]['mean_estimate'] is None
     assert 'sharpe' not in result and 'portfolio_pnl' not in result
+
+
+@pytest.mark.parametrize('horizon',['DAY','YEAR'])
+def test_full_walk_forward_supports_other_horizons(horizon):
+    result=train(generate(DatasetSpec(assets=1,horizon=horizon)))
+    assert len(result['folds'])==4 and result['promotion_allowed'] is False
+    assert all(f['metrics']['rows']>30 for f in result['folds'])

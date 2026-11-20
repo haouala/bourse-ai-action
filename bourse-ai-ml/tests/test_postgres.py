@@ -125,3 +125,37 @@ def test_batch_can_run_without_any_access_to_backend_tables(connection):
         result=batch.execute(worker,DatasetSpec(assets=2,seed=71))
         assert result['status']=='SUCCEEDED'
     assert connection.execute('SELECT * FROM public.ml_backend_sentinel').fetchall()==[{'id':1,'value':'unchanged'}]
+
+
+def test_cli_exports_and_reexports_without_retraining(connection,tmp_path,monkeypatch,capsys):
+    import csv,hashlib,json
+    from bourse_ai_ml import cli
+    monkeypatch.setenv('BOURSE_ML_DSN',os.environ['BOURSE_ML_TEST_DSN'])
+    assert cli.main(['init-db'])==0;capsys.readouterr()
+    assert cli.main(['demo','--assets','2','--seed','12','--output',str(tmp_path)])==0
+    result=json.loads(capsys.readouterr().out);directory=tmp_path/result['run_id']
+    manifest=json.loads((directory/'complete.json').read_text())
+    for name,h in manifest['files'].items(): assert hashlib.sha256((directory/name).read_bytes()).hexdigest()==h
+    with (directory/'predictions.csv').open() as stream:
+        predictions=list(csv.DictReader(stream))
+    assert len(predictions)==result['prediction_count']
+    assert json.loads((directory/'models.json').read_text())['promotion_allowed'] is False
+    monkeypatch.setattr(batch,'train',lambda _:pytest.fail('Export ne doit pas entraîner'))
+    assert cli.main(['report',result['run_id'],'--output',str(tmp_path)])==0
+    capsys.readouterr()
+    assert cli.main(['status'])==0
+    assert json.loads(capsys.readouterr().out)['runs'][0]['status']=='SUCCEEDED'
+
+
+def test_export_failure_does_not_turn_success_into_failed_run(connection,tmp_path,monkeypatch,capsys):
+    from bourse_ai_ml import cli
+    monkeypatch.setenv('BOURSE_ML_DSN',os.environ['BOURSE_ML_TEST_DSN'])
+    def failed_export(*args): raise PermissionError('private/path secret')
+    original=cli.export;monkeypatch.setattr(cli,'export',failed_export)
+    assert cli.main(['demo','--assets','2','--seed','33','--output',str(tmp_path)])==2
+    assert 'secret' not in capsys.readouterr().out
+    run=connection.execute('SELECT * FROM bourse_ml.runs').fetchone()
+    assert run['status']=='SUCCEEDED'
+    monkeypatch.setattr(cli,'export',original)
+    assert cli.main(['report',str(run['run_id']),'--output',str(tmp_path)])==0
+    capsys.readouterr()
