@@ -46,7 +46,13 @@ fun BourseApp(store: AppStore) {
                     AssetScreen(store, symbol, { nav.navigate("analysis/${Uri.encode(symbol)}") }, { nav.navigate("calendar/${Uri.encode(symbol)}") })
                 }
                 composable("calendar/{symbol}") { CalendarScreen(store, it.arguments?.getString("symbol").orEmpty()) }
-                composable("analysis/{symbol}") { Page("Analyse · ${it.arguments?.getString("symbol")}") { Note("Les explications seront ajoutées dans le prochain module.") } }
+                composable("analysis/{symbol}") { e ->
+                    val symbol = e.arguments?.getString("symbol").orEmpty()
+                    val rulesId by e.savedStateHandle.getStateFlow<Long?>("rulesId", null).collectAsStateWithLifecycle()
+                    AnalysisScreen(store, symbol, rulesId, { nav.navigate("seasonality/${Uri.encode(symbol)}") }, { nav.navigate("rules") })
+                }
+                composable("seasonality/{symbol}") { SeasonalityScreen(store, it.arguments?.getString("symbol").orEmpty()) }
+                composable("rules") { RulesScreen(store) { id -> nav.previousBackStackEntry?.savedStateHandle?.set<Long?>("rulesId", id); nav.popBackStack() } }
                 composable("news") { Page("Informations", "Actualités et personnages publics") { Note("Module en cours de préparation.") } }
                 composable("portfolio") { Page("Portefeuille") { Note("Module en cours de préparation.") } }
                 composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }

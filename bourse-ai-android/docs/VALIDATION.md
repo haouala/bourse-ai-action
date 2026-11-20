@@ -15,3 +15,7 @@ L’APK du socle est généré. La validation visuelle et les parcours intégré
 Le module 2 vérifie les recherches et filtres, les données mal formées, les horaires continus crypto, les ajouts et pauses idempotents ainsi que le plafond de 100 actions dans le mode démonstration. Les requêtes serveur utilisent PUT /api/v1/watchlist avec le contrat du backend.
 
 Le module 3 vérifie les quatre intervalles, les bougies ordonnées et cohérentes, les indicateurs absents, les prix extrêmes/identiques, l’affichage exact des petits prix crypto et le calendrier explicitement fictif en démo. Les courbes montrent uniquement l’historique.
+
+## Module 4 — analyses, versions et saisonnalité
+
+APK, Android Lint et les 24 tests cumulés réussissent, sans échec, erreur ou test ignoré. Les tests vérifient les trois horizons, les variantes immuables, la décomposition exacte des variations, les amplitudes et seuils bornés, les scores absents, les liens HTTPS distincts et les statistiques exclusivement mensuelles/trimestrielles/annuelles sans poids dans le score. Les snapshots précédents restent consultables.
