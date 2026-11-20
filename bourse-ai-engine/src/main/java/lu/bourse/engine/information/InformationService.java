@@ -24,7 +24,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service
 public class InformationService {
-    public record Source(String code,String name,String feedUrl,String evidenceUrl,String region,String language){}
+    public record Source(String code,String name,String feedUrl,String evidenceUrl,String region,String language,String contentKind,String publisherGroup){}
     private final JdbcTemplate db;private final Clock clock;private final ObjectMapper json;private final SocialSignalService social;
     private final TransactionTemplate tx;private final HttpClient http;private final Resource catalog;private final boolean scheduler;
     private final String testBase;private final int minimumInterval;private final FeedParser parser=new FeedParser();
@@ -43,12 +43,12 @@ public class InformationService {
             Source[] sources=json.readValue(in,Source[].class);
             for(Source s:sources){
                 if(s.code()==null||!s.code().matches("[A-Z0-9_]{2,60}")||s.name()==null||s.name().length()>160||s.region()==null||s.region().length()>30||s.language()==null||s.language().length()>12||!safeConfiguredUrl(s.feedUrl())||!safeConfiguredUrl(s.evidenceUrl()))throw new IllegalArgumentException("Invalid source catalog entry");
-                if(db.queryForObject("SELECT COUNT(*) FROM information_sources WHERE code=?",Integer.class,s.code())==0)db.update("INSERT INTO information_sources(code,name,feed_url,evidence_url,region,language_code) VALUES (?,?,?,?,?,?)",s.code(),s.name(),s.feedUrl(),s.evidenceUrl(),s.region(),s.language());
+                if(db.queryForObject("SELECT COUNT(*) FROM information_sources WHERE code=?",Integer.class,s.code())==0)db.update("INSERT INTO information_sources(code,name,feed_url,evidence_url,region,language_code,content_kind,publisher_group) VALUES (?,?,?,?,?,?,?,?)",s.code(),s.name(),s.feedUrl(),s.evidenceUrl(),s.region(),s.language(),s.contentKind()==null?"ARTICLE":s.contentKind(),s.publisherGroup()==null?(s.code().startsWith("FED_")?"FED":s.code().startsWith("BOE_")?"BOE":s.code()):s.publisherGroup());
                 // Never silently replace a configured feed or publisher identity; explicit catalog migrations are reviewable.
             }
         }catch(Exception e){throw new IllegalStateException("Cannot load information source catalog",e);}
     }
-    public List<Map<String,Object>> sources(){return db.queryForList("SELECT code,name,feed_url,evidence_url,region,language_code,enabled,last_success_at,last_error,next_attempt_at FROM information_sources ORDER BY code");}
+    public List<Map<String,Object>> sources(){return db.queryForList("SELECT code,name,feed_url,evidence_url,region,language_code,content_kind,publisher_group,enabled,last_success_at,last_error,next_attempt_at FROM information_sources ORDER BY code");}
     public void enable(String code,boolean value){if(db.update("UPDATE information_sources SET enabled=?,updated_time=CURRENT_TIMESTAMP WHERE code=?",value,code)==0)throw new ResponseStatusException(NOT_FOUND,"Unknown source");}
     public Map<String,Object> sync(String code){
         Instant now=clock.instant();String token=UUID.randomUUID().toString();

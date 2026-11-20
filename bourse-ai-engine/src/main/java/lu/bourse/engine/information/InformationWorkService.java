@@ -65,6 +65,7 @@ public class InformationWorkService {
         db.update("UPDATE information_ai_jobs SET status=?,error_code=?,next_attempt_at=?,lease_token=NULL,lease_until=NULL,updated_time=? WHERE id=?",retry?"PENDING":"FAILED",f.code(),ts(clock.instant().plusSeconds(3600)),ts(clock.instant()),id);}
     public List<Map<String,Object>> jobs(){return db.queryForList("SELECT id,item_id,model,prompt_version,status,attempts,error_code,created_time,updated_time FROM information_ai_jobs ORDER BY id DESC LIMIT 200");}
     public List<Map<String,Object>> contents(long item){return db.queryForList("SELECT * FROM information_contents WHERE item_id=? ORDER BY id DESC",item);}
+    public Map<String,Object> contentIdentity(long id){return db.queryForMap("SELECT id,content_hash FROM information_contents WHERE id=?",id);}
     public Map<String,Object> locked(long id,String token){var rows=db.queryForList("SELECT * FROM information_ai_jobs WHERE id=? FOR UPDATE",id);if(rows.isEmpty())throw new ResponseStatusException(NOT_FOUND,"Unknown job");var job=rows.getFirst();if(token==null||!token.equals(job.get("lease_token"))||!"RUNNING".equals(job.get("status"))||!SqlIds.instant(job.get("lease_until")).isAfter(clock.instant()))throw new ResponseStatusException(CONFLICT,"Lease expired or superseded");return job;}
     private void guard(){db.queryForObject("SELECT id FROM information_worker_guard WHERE id=1 FOR UPDATE",Integer.class);}
     private void validate(Content c){

@@ -24,7 +24,7 @@ class MigrationUpgradeTest {
                 Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().migrate();
                 try(var rows=sql.executeQuery("SELECT price_quote,observed_at,fx_observed_at FROM position_marks WHERE position_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getBigDecimal(1)).isEqualByComparingTo("95");assertThat(rows.getTimestamp(3)).isEqualTo(rows.getTimestamp(2));}
                 try(var rows=sql.executeQuery("SELECT calendar_code FROM asset_market_policies WHERE asset_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getString(1)).isEqualTo("US_EQUITIES");}
-                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("9");
+                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("10");
             }finally{connection.setSchema("PUBLIC".equals(connection.getMetaData().getDatabaseProductName())?"PUBLIC":connection.getMetaData().getDatabaseProductName().equals("H2")?"PUBLIC":"public");connection.createStatement().execute("DROP SCHEMA \""+schema+"\" CASCADE");}
         }
     }
