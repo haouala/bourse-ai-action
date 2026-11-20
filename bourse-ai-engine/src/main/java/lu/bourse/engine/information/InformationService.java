@@ -31,7 +31,7 @@ public class InformationService {
     public InformationService(JdbcTemplate db,Clock clock,ObjectMapper json,SocialSignalService social,PlatformTransactionManager manager,
         @Value("${information.catalog:classpath:information-sources.json}") Resource catalog,
         @Value("${information.scheduler.enabled:false}") boolean scheduler,
-        @Value("${information.minimum-interval-seconds:900}") int minimumInterval,
+        @Value("${information.minimum-interval-seconds:3600}") int minimumInterval,
         @Value("${information.test-base-url:}") String testBase){
         this.db=db;this.clock=clock;this.json=json;this.social=social;this.catalog=catalog;this.scheduler=scheduler;this.minimumInterval=Math.max(60,minimumInterval);this.testBase=testBase;
         if(!testBase.isBlank()&&!testBase.matches("http://127\\.0\\.0\\.1:[0-9]+"))throw new IllegalArgumentException("Test base must be loopback HTTP");

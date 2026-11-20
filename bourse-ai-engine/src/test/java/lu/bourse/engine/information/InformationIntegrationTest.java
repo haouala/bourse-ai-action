@@ -31,6 +31,14 @@ class InformationIntegrationTest extends DatabaseIntegrationSupport {
     static String feed(String text,String date){return "<rss><channel><item><guid>one</guid><title>Policy statement</title><link>https://example.org/statement</link><description>"+text+"</description>"+(date==null?"":"<pubDate>"+date+"</pubDate>")+"</item></channel></rss>";}
     void ready(){db.update("UPDATE information_sources SET next_attempt_at=NULL WHERE code='FED_PRESS'");}
     @Test void disabledByDefaultAndSourceCannotBeCalledBeforeExplicitEnable(){assertThatThrownBy(()->info.sync("FED_PRESS")).isInstanceOf(ResponseStatusException.class);assertThat(calls.get()).isZero();assertThat(info.sources()).hasSize(12);}
+    @Test void defaultPollingIsHourlyWithoutChangingMarketIntervals(){
+        info.enable("FED_PRESS",true);info.sync("FED_PRESS");
+        assertThat(lu.bourse.engine.persistence.SqlIds.instant(db.queryForObject("SELECT next_attempt_at FROM information_sources WHERE code='FED_PRESS'",Object.class))).isEqualTo(NOW.plusSeconds(3600));
+        when(clock.instant()).thenReturn(NOW.plusSeconds(3599));
+        assertThatThrownBy(()->info.sync("FED_PRESS")).isInstanceOf(ResponseStatusException.class);
+        when(clock.instant()).thenReturn(NOW.plusSeconds(3600));
+        info.sync("FED_PRESS");assertThat(calls.get()).isEqualTo(2);
+    }
     @Test void rssPersistsDatesAndSecondImportIsIdempotent(){info.enable("FED_PRESS",true);assertThat(info.sync("FED_PRESS").get("inserted")).isEqualTo(1);ready();assertThat(info.sync("FED_PRESS").get("inserted")).isEqualTo(0);assertThat(info.items(null)).hasSize(1);assertThat(social.publications()).hasSize(1);assertThat(info.items(null).getFirst().get("published_at")).isNotNull();assertThat(conditional.get()).isEqualTo("test-etag");}
     @Test void correctedFeedTextRetainsBothVersionsAndOriginalPublication(){info.enable("FED_PRESS",true);info.sync("FED_PRESS");ready();body.set(feed("Corrected statement about tariffs","Thu, 19 Nov 2026 14:00:00 GMT"));info.sync("FED_PRESS");assertThat(info.items(null)).hasSize(2);assertThat(social.publications()).hasSize(2);}
     @Test void missingOrFutureDatesDoNotBecomeAuthoritativePublications(){info.enable("FED_PRESS",true);body.set(feed("Undated statement",null));info.sync("FED_PRESS");assertThat(info.items(null).getFirst().get("review_status")).isEqualTo("DATE_MISSING");ready();body.set(feed("Future statement","Fri, 20 Nov 2026 14:00:00 GMT"));info.sync("FED_PRESS");assertThat(social.publications()).isEmpty();}
