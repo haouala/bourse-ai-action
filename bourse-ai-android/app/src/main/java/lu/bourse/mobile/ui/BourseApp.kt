@@ -41,7 +41,12 @@ fun BourseApp(store: AppStore) {
             }
             NavHost(nav, startDestination = "market", modifier = Modifier.weight(1f)) {
                 composable("market") { MarketScreen(store) { nav.navigate("asset/${Uri.encode(it)}") } }
-                composable("asset/{symbol}") { Page(it.arguments?.getString("symbol") ?: "Actif") { Note("Le module de détail arrive dans le prochain commit.") } }
+                composable("asset/{symbol}") { e ->
+                    val symbol = e.arguments?.getString("symbol").orEmpty()
+                    AssetScreen(store, symbol, { nav.navigate("analysis/${Uri.encode(symbol)}") }, { nav.navigate("calendar/${Uri.encode(symbol)}") })
+                }
+                composable("calendar/{symbol}") { CalendarScreen(store, it.arguments?.getString("symbol").orEmpty()) }
+                composable("analysis/{symbol}") { Page("Analyse · ${it.arguments?.getString("symbol")}") { Note("Les explications seront ajoutées dans le prochain module.") } }
                 composable("news") { Page("Informations", "Actualités et personnages publics") { Note("Module en cours de préparation.") } }
                 composable("portfolio") { Page("Portefeuille") { Note("Module en cours de préparation.") } }
                 composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }
