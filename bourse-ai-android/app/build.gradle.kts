@@ -12,8 +12,8 @@ android {
         applicationId = "lu.bourse.mobile"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     testOptions { unitTests.isIncludeAndroidResources = true }
@@ -63,4 +63,17 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+tasks.withType<Test>().configureEach {
+    val backendUrl = providers.gradleProperty("backendUrl").orNull
+    if (backendUrl == null) exclude("**/BackendContractTest*")
+    else systemProperty("bourse.backendUrl", backendUrl)
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        events("failed", "skipped")
+    }
+    maxHeapSize = "2g"
+    systemProperty("roborazzi.test.record", "true")
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
 }

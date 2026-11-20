@@ -47,7 +47,7 @@ fun AnalysisScreen(store: AppStore, symbol: String, rulesetId: Long?, season: ()
                 Text(display(factor.text("explanation")))
                 factor.field("evidence")?.let { evidence -> evidenceLinks(evidence).forEachIndexed { index, url -> Evidence(url, "Consulter la source ${index + 1}") }; JsonDetails(evidence) }
             } }
-            analysis.raw.child("contributionChanges")?.let { changes -> Panel("Pourquoi le score a changé") { changes.entrySet().forEach { (name, value) -> KeyValue(name, "${value.asString} points") } } }
+            analysis.raw.child("contributionChanges")?.takeIf { it.size() > 0 && analysis.raw.field("previousScore") != null }?.let { changes -> Panel("Pourquoi le score a changé") { changes.entrySet().forEach { (name, value) -> KeyValue(name, "${value.asString} points") } } }
             JsonDetails(analysis.raw, "Voir la trace complète de l’analyse")
         }
         OutlinedButton(onClick = season, modifier = Modifier.fillMaxWidth()) { Text("Saisonnalité mensuelle, trimestrielle et annuelle") }

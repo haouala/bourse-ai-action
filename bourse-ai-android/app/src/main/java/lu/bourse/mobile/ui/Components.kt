@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,7 +74,7 @@ fun Remote(store: AppStore, key: String, empty: String = "Aucune donnée disponi
 @Composable
 fun <T> DataBlock(store: AppStore, key: String, empty: String = "Aucune donnée disponible", decode: (JsonElement) -> T, content: @Composable (T) -> Unit) {
     Remote(store, key, empty) { value ->
-        val decoded = remember(value, decode) { runCatching { decode(value) } }
+        val decoded = runCatching { decode(value) }
         if (decoded.isSuccess) content(decoded.getOrThrow()) else Note("Réponse du serveur incompatible : ${decoded.exceptionOrNull()?.message}", true)
     }
 }
@@ -107,7 +108,7 @@ fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, opera
     var validation by remember { mutableStateOf<String?>(null) }
     val resources by store.resources.collectAsStateWithLifecycle()
     val resource = resources[operation]
-    AlertDialog(onDismissRequest = { if (resource?.loading != true) onDismiss() }, title = { Text(title) }, text = {
+    AlertDialog(properties = DialogProperties(usePlatformDefaultWidth = false), modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.94f), onDismissRequest = { if (resource?.loading != true) onDismiss() }, title = { Text(title) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             fields.forEach { field ->
                 if (field.options.isEmpty()) OutlinedTextField(value = values[field.key].orEmpty(), onValueChange = { values[field.key] = it; validation = null }, label = { Text(field.label) }, keyboardOptions = KeyboardOptions(keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth().testTag("input-${field.key}"), singleLine = true)

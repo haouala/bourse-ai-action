@@ -20,7 +20,7 @@ import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
 
 private data class Tab(val route: String, val title: String, val icon: ImageVector)
-private val tabs = listOf(Tab("market", "Marché", Icons.Default.ShowChart), Tab("news", "Infos", Icons.Default.Article), Tab("portfolio", "Portefeuille", Icons.Default.AccountBalanceWallet), Tab("alerts", "Alertes", Icons.Default.Notifications), Tab("settings", "Réglages", Icons.Default.Settings))
+private val tabs = listOf(Tab("market", "Marché", Icons.Default.ShowChart), Tab("news", "Infos", Icons.Default.Article), Tab("portfolio", "Positions", Icons.Default.AccountBalanceWallet), Tab("alerts", "Alertes", Icons.Default.Notifications), Tab("settings", "Réglages", Icons.Default.Settings))
 
 @Composable
 fun BourseApp(store: AppStore, alertRequest: Int = 0) {
