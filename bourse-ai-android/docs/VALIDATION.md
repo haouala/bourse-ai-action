@@ -27,3 +27,9 @@ APK, Lint et les 30 tests cumulés réussissent, sans échec ni test ignoré. Le
 ## Module 6 — portefeuille, opérations et risque
 
 APK, Lint et les 36 tests cumulés réussissent sans échec ni test ignoré. Les six tests métier ajoutés vérifient les fuseaux et microsecondes exigées par le backend, les limites de risque et montants, les achats idempotents, le cash avec FX appliqué une seule fois, la perte indisponible sans marque, les dates prix/FX indépendantes, les ventes partielles/idempotentes, les clôtures et les plans sans ordre exécutable. Le formulaire conserve ses champs lors de la rotation ; la vérification UI intégrée est prévue dans le lot final.
+
+## Module 7 — alertes et notifications Android
+
+APK, Lint et les 45 tests cumulés réussissent sans échec ni test ignoré. Six tests couvrent les filtres, l’acquittement sans effacer l’historique, la déduplication par serveur/portefeuille/génération et la limite de perte verrouillée. Trois tests supplémentaires sous Robolectric Android 15 (API 35) vérifient le refus en mode démo ou sans portefeuille, le blocage global malgré une permission accordée, et la publication effective d’une notification Android privée avec son intent et sa mémoire de déduplication.
+
+La consultation en arrière-plan utilise WorkManager à intervalle demandé de 15 minutes, après activation et permission utilisateur. Elle lit uniquement les alertes produites par le backend. Les restrictions Android peuvent retarder l’exécution ; ce n’est pas du push instantané FCM. La livraison sur appareil physique et les restrictions spécifiques des constructeurs restent à vérifier sur le téléphone utilisateur.

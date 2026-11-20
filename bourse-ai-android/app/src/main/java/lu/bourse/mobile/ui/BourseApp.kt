@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.net.Uri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,11 +23,14 @@ private data class Tab(val route: String, val title: String, val icon: ImageVect
 private val tabs = listOf(Tab("market", "Marché", Icons.Default.ShowChart), Tab("news", "Infos", Icons.Default.Article), Tab("portfolio", "Portefeuille", Icons.Default.AccountBalanceWallet), Tab("alerts", "Alertes", Icons.Default.Notifications), Tab("settings", "Réglages", Icons.Default.Settings))
 
 @Composable
-fun BourseApp(store: AppStore) {
+fun BourseApp(store: AppStore, alertRequest: Int = 0) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "market"
     val config by store.config.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
+    LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
     val root = route in tabs.map { it.route }
     Scaffold(topBar = { TopAppBar(title = { Text("Bourse AI") }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
@@ -60,7 +64,7 @@ fun BourseApp(store: AppStore) {
                 composable("events") { EventsScreen(store) }
                 composable("portfolio") { PortfolioScreen(store, { portfolio, position -> nav.navigate("plan/$portfolio/$position") }, { nav.navigate("asset/${Uri.encode(it)}") }) }
                 composable("plan/{portfolio}/{position}") { PositionPlanScreen(store, it.arguments?.getString("portfolio")?.toLongOrNull() ?: 0, it.arguments?.getString("position")?.toLongOrNull() ?: 0) }
-                composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }
+                composable("alerts") { AlertsScreen(store) }
                 composable("settings") { SettingsScreen(store) }
             }
         }
