@@ -95,7 +95,10 @@ fun JsonObject.list(name: String): List<JsonObject> = field(name)?.rows() ?: emp
 fun JsonObject.required(name: String): String = text(name) ?: throw ContractFailure("Champ absent : $name")
 
 fun positiveDecimal(value: String, label: String, allowZero: Boolean = false): BigDecimal {
-    val number = value.trim().replace(',', '.').toBigDecimalOrNull() ?: throw IllegalArgumentException("$label : nombre invalide")
+    val normalized = value.trim().replace(',', '.')
+    require(normalized.length <= 40 && normalized.matches(Regex("[0-9]+(?:\\.[0-9]{1,8})?"))) { "$label : nombre décimal invalide (sans exposant)" }
+    val number = normalized.toBigDecimalOrNull() ?: throw IllegalArgumentException("$label : nombre invalide")
+    require(number.precision() - number.scale() <= 14) { "$label : montant trop élevé" }
     require(number.scale() <= 8 && number.precision() <= 24 && (number.signum() > 0 || allowZero && number.signum() == 0)) { "$label : montant ${if (allowZero) "positif ou nul" else "positif"}, au plus 8 décimales" }
     return number
 }

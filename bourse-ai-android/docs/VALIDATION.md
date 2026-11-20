@@ -23,3 +23,7 @@ APK, Android Lint et les 24 tests cumulés réussissent, sans échec, erreur ou 
 ## Module 5 — informations, sources et personnes
 
 APK, Lint et les 30 tests cumulés réussissent, sans échec ni test ignoré. Les six nouveaux tests contrôlent les dates distinctes, les dates absentes, le filtre de source, les citations exactes et leur idempotence, la conservation du lien original, l’activation explicite des flux et le journal d’import, sans confondre mention, identité et confirmation. Le mobile consulte aussi les impacts par entreprise et leurs preuves.
+
+## Module 6 — portefeuille, opérations et risque
+
+APK, Lint et les 36 tests cumulés réussissent sans échec ni test ignoré. Les six tests métier ajoutés vérifient les fuseaux et microsecondes exigées par le backend, les limites de risque et montants, les achats idempotents, le cash avec FX appliqué une seule fois, la perte indisponible sans marque, les dates prix/FX indépendantes, les ventes partielles/idempotentes, les clôtures et les plans sans ordre exécutable. Le formulaire conserve ses champs lors de la rotation ; la vérification UI intégrée est prévue dans le lot final.

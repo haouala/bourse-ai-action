@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -100,7 +101,9 @@ data class InputField(val key: String, val label: String, val initial: String = 
 
 @Composable
 fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, operation: String, onDismiss: () -> Unit, submitLabel: String = "Enregistrer", onSubmit: (Map<String, String>) -> Unit) {
-    val values = remember { mutableStateMapOf<String, String>().apply { fields.forEach { put(it.key, it.initial) } } }
+    val values = rememberSaveable(saver = mapSaver<androidx.compose.runtime.snapshots.SnapshotStateMap<String, String>>(
+        save = { it.toMap() }, restore = { saved -> mutableStateMapOf<String, String>().apply { saved.forEach { (key, value) -> put(key, value as String) } } }
+    )) { mutableStateMapOf<String, String>().apply { fields.forEach { put(it.key, it.initial) } } }
     var validation by remember { mutableStateOf<String?>(null) }
     val resources by store.resources.collectAsStateWithLifecycle()
     val resource = resources[operation]

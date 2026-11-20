@@ -58,7 +58,8 @@ fun BourseApp(store: AppStore) {
                 composable("sources") { SourcesScreen(store) }
                 composable("persons") { PersonsScreen(store) }
                 composable("events") { EventsScreen(store) }
-                composable("portfolio") { Page("Portefeuille") { Note("Module en cours de préparation.") } }
+                composable("portfolio") { PortfolioScreen(store, { portfolio, position -> nav.navigate("plan/$portfolio/$position") }, { nav.navigate("asset/${Uri.encode(it)}") }) }
+                composable("plan/{portfolio}/{position}") { PositionPlanScreen(store, it.arguments?.getString("portfolio")?.toLongOrNull() ?: 0, it.arguments?.getString("position")?.toLongOrNull() ?: 0) }
                 composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }
                 composable("settings") { SettingsScreen(store) }
             }
@@ -75,7 +76,7 @@ fun SettingsScreen(store: AppStore) {
     var message by remember { mutableStateOf<String?>(null) }
     Page("Réglages", "Les clés de données de marché et les clés IA restent sur le backend.") {
         Panel("Connexion") {
-            Row { Checkbox(checked = demo, onCheckedChange = { demo = it }); TextButton(onClick = { demo = !demo }) { Text("Mode démonstration") } }
+            Row { Checkbox(checked = demo, onCheckedChange = { demo = it; portfolio = "" }); TextButton(onClick = { demo = !demo; portfolio = "" }) { Text("Mode démonstration") } }
             OutlinedTextField(server, { server = it }, label = { Text("Adresse du backend") }, modifier = Modifier.fillMaxWidth().testTag("server-url"), singleLine = true)
             Text("Émulateur Android : http://10.0.2.2:8081. Téléphone : adresse du PC sur le même réseau. Le backend doit être démarré.", style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(portfolio, { portfolio = it }, label = { Text("Identifiant du portefeuille (facultatif)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)

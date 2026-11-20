@@ -9,6 +9,7 @@ import java.time.Instant
 class DemoTransport : Transport {
     private val analysis = DemoAnalysis()
     private val information = DemoInformation()
+    private val portfolio = DemoPortfolio()
     private val watchlist = JsonArray().apply {
         add(watchRow(1, "AAPL", "Apple", "STOCK", "AAPL"))
         add(watchRow(2, "NVDA", "NVIDIA", "STOCK", "NVDA"))
@@ -31,6 +32,7 @@ class DemoTransport : Transport {
     override suspend fun request(method: String, path: List<String>, query: Map<String, String>, body: JsonObject?): JsonElement {
         analysis.request(method, path, query, body)?.let { return it }
         information.request(method, path, query, body)?.let { return it }
+        portfolio.request(method, path, body) { symbol -> watchlist.firstOrNull { it.asJsonObject.text("symbol") == symbol }?.asJsonObject }?.let { return it }
         if (path == listOf("actuator", "health")) return obj("status" to "UP", "mode" to "DEMO")
         if (method == "GET" && path.size == 4 && path.take(3) == listOf("api", "v1", "charts")) return chart(path[3], query["timeframe"] ?: "15m")
         if (method == "GET" && path.size == 6 && path.take(4) == listOf("api", "v1", "calendars", "assets") && path.last() == "state") return obj("calendarCode" to "DEMO_US", "marketState" to "CLOSED", "expectedClose" to "2026-11-19T21:00:00Z", "nextOpen" to "2026-11-20T14:30:00Z", "reason" to "Exemple local fictif, indépendant du calendrier réel")

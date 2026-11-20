@@ -12,7 +12,10 @@ data class Resource(val loading: Boolean = false, val value: JsonElement? = null
 interface ConfigStorage { fun read(): ConnectionConfig; fun save(config: ConnectionConfig) }
 class PhoneConfig(context: Context) : ConfigStorage {
     private val prefs = context.getSharedPreferences("bourse-settings", Context.MODE_PRIVATE)
-    override fun read() = ConnectionConfig(prefs.getBoolean("demo", true), prefs.getString("server", "http://10.0.2.2:8081")!!, prefs.getLong("portfolio", 0).takeIf { it > 0 })
+    override fun read(): ConnectionConfig {
+        val demo = prefs.getBoolean("demo", true)
+        return ConnectionConfig(demo, prefs.getString("server", "http://10.0.2.2:8081")!!, if (demo) 1 else prefs.getLong("portfolio", 0).takeIf { it > 0 })
+    }
     override fun save(config: ConnectionConfig) { prefs.edit().putBoolean("demo", config.demo).putString("server", config.server).putLong("portfolio", config.portfolioId ?: 0).apply() }
 }
 
