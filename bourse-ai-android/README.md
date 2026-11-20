@@ -59,10 +59,9 @@ Les écrans et les accès aux données seront séparés lorsque les API seront r
 
 ## État des vérifications
 
-- XML du manifeste, des ressources et du lanceur vérifiés par analyse syntaxique ; références locales aux chaînes et au thème contrôlées.
-- JAR du Wrapper officiel 8.11.1 vérifié par SHA-256 ; SHA-256 de la distribution fixé dans `gradle-wrapper.properties` ; script Unix exécutable.
-- La commande `./gradlew --version` a été tentée dans l'environnement de création : téléchargement bloqué par `Network is unreachable`. Aucun SDK Android ni émulateur n'y est installé. **Compilation APK, Android Lint et démarrage sur appareil non exécutés avec succès à ce stade.** Les commandes ci-dessus permettent de réaliser ces vérifications dans Android Studio.
-- Aucun test métier n'est ajouté à ce projet initial, qui ne contient pas encore de logique financière. Les 103 tests du backend appartiennent à une autre branche et ne constituent pas une validation Android.
+Le module socle est compilé en APK de développement. `:app:assembleDebug :app:testDebugUnitTest :app:lintDebug` réussit avec le SDK 35 ; les sept tests du socle passent. Voir [docs/VALIDATION.md](docs/VALIDATION.md) pour les validations par module. Les modules métier seront ajoutés par commits successifs.
+
+Le mode démonstration est sélectionné au premier lancement. Les réglages permettent de passer au backend et de tester la connexion. Le serveur doit fournir les API V8 de la branche backend `feature/portfolio-timeframes-alerts`, à démarrer dans un autre checkout du dépôt. La branche Android reste séparée du backend.
 
 ## Étapes suivantes
 
@@ -72,7 +71,7 @@ Les écrans et les accès aux données seront séparés lorsque les API seront r
 - Sources des informations et décomposition des changements de score.
 - Notifications push et tests mobiles.
 
-Aucun token fournisseur, clé IA, mot de passe PostgreSQL ou certificat de signature n'est intégré dans l'application. Les clés des fournisseurs resteront côté backend. Ce socle ne demande aucune configuration de token et n'inclut pas de permission réseau.
+Les clés des fournisseurs et de l’IA restent sur le backend. Le client ne contient aucun secret. La connexion HTTP est autorisée uniquement dans la variante de développement ; la variante de production impose HTTPS. Les appels ont des délais bornés et ne sont pas réessayés automatiquement.
 
 ## Versions fixées
 
