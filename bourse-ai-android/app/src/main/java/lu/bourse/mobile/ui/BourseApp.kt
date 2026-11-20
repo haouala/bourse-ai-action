@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import android.net.Uri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
 import lu.bourse.mobile.*
@@ -39,7 +40,8 @@ fun BourseApp(store: AppStore) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
             NavHost(nav, startDestination = "market", modifier = Modifier.weight(1f)) {
-                composable("market") { Page("Votre marché", "Suivi des actions et cryptomonnaies") { Note("Le module de suivi sera raccordé à la prochaine étape.") } }
+                composable("market") { MarketScreen(store) { nav.navigate("asset/${Uri.encode(it)}") } }
+                composable("asset/{symbol}") { Page(it.arguments?.getString("symbol") ?: "Actif") { Note("Le module de détail arrive dans le prochain commit.") } }
                 composable("news") { Page("Informations", "Actualités et personnages publics") { Note("Module en cours de préparation.") } }
                 composable("portfolio") { Page("Portefeuille") { Note("Module en cours de préparation.") } }
                 composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }
