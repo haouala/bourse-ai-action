@@ -1,6 +1,6 @@
 # Lot 3 — Suivi des marchés, portefeuille et alertes
 
-État du développement au 19 novembre 2026. Cette documentation technique accompagne le code de la branche `feature/portfolio-timeframes-alerts`. Le document d’analyse Word/PDF n’a pas été modifié.
+État du développement au 20 novembre 2026. Cette documentation technique accompagne le code de la branche `feature/portfolio-timeframes-alerts`. Le document d’analyse version 1.2 accompagne cette livraison.
 
 ## Ce qui est livré
 
@@ -10,11 +10,14 @@
 | Séries | Imports et analyses 15m, 30m, 1h et 1d ; 1m historique conservé pour compatibilité | Droits fournisseurs et couverture réelle non validés avec une clé payante |
 | Historique EODHD | Paramètre `years` de 1 à 30 ; type STOCK ou CRYPTO | API quotidienne ; import intraday EODHD et pagination longue durée restent à faire |
 | Synchronisation récente | Quatre intervalles natifs Twelve Data, timestamps UTC, rejet des bougies en cours | Une page de 5 000 bougies par tâche, sans promesse de 10 ans d’intraday ; volume obligatoire |
-| Planification | Liste persistante de tâches, créneaux dédupliqués, bail et reprise, quotas partagés | Désactivée par défaut ; une autorisation fournisseur reste nécessaire ; calendrier sans jours fériés ni demi-séances |
+| Planification | Liste persistante de tâches, créneaux dédupliqués, bail et reprise, quotas partagés | Désactivée par défaut ; une autorisation fournisseur reste nécessaire ; calendrier US régulier fourni ; autres places à importer |
 | Portefeuille | Capital et perte maximale globale, achats, achats supplémentaires, ventes partielles ou totales, frais et FX explicite | Positions longues uniquement, sans vente à découvert ni levier ; déclarations manuelles, aucun ordre courtier |
 | Risque global | Valeur du portefeuille, pertes réalisées et latentes, limite globale, données absentes/périmées signalées | Marquage automatique depuis les bougies 15m uniquement quand devise du titre et devise du portefeuille sont identiques |
 | Alertes | Seuil global de perte et franchissement MACD baissier selon l’horizon de la position ; dédoublonnage et acquittement | Enregistrées et consultables en REST ; pas encore de notification push sur téléphone |
 | Graphiques | API OHLCV chronologique, indicateurs, prix d’achat et scénarios de protection/objectif | Front Android non développé ; objectif 2R illustratif, non calibré ni validé par backtests |
+| Collecte RSS et Atom | 12 flux publics institutionnels et de presse, versions, dates et citations attribuées manuellement | Sources désactivées par défaut ; classification sémantique à développer |
+| Saisonnière | Mois, trimestres et années sur bougies quotidiennes, contrôle des périodes et échantillons | Statistiques exploratoires ; contribution au score nulle |
+| Explication du score | MACD/RSI, variation de marge nette et événements ; preuves, versions et comparaison | Heuristique expérimentale sans probabilité de gain |
 | Correctif news | La date GDELT extraite est désormais stockée dans `published_time` | Analyse sémantique et recoupement encore à développer |
 | Publications sociales | Comptes suivis, autorité par sujet/date, événements communs, impact et confiance par actif, alertes de réexamen et de retrait | Classification et preuves validées manuellement ; collecteur X facultatif désactivé ; autres collecteurs et score global à développer |
 
@@ -59,7 +62,7 @@ Les mouvements de trésorerie incorporent les frais. Une vente partielle libère
 
 La limite porte sur la perte nette depuis le capital initial, pas sur une baisse depuis le plus haut historique du portefeuille. Les gains réalisés compensent donc les pertes ultérieures. Les dépôts et retraits après création ne sont pas encore modélisés : ne pas modifier le capital initial pour masquer une perte.
 
-Sans prix récent ou FX explicite, la valorisation reste incomplète : `loss` et le budget restant sont `null`, et aucun avis sain n’est inventé. Un prix de plus de vingt minutes produit `STALE_DATA`, même pour une position longue. Hors séance, ce statut peut être attendu ; une gestion plus complète des calendriers reste à intégrer.
+La fraîcheur est déterminée par la dernière bougie attendue dans le calendrier affecté, avec une marge de livraison configurable. Une clôture complète reste une estimation explicite pendant la fermeture et l’attente de la première bougie. Un prix ou un taux FX absent/périmé laisse la perte et le budget indisponibles ; la valeur connue reste consultable. Les erreurs de calendrier et les suspensions sont distinguées. Le taux FX possède un horodatage séparé et une convention de week-end propre.
 
 Le scénario de protection répartit la marge de perte encore disponible proportionnellement à la valeur des positions. Il est indicatif et peut évoluer lors des réévaluations. L’objectif « 2R » illustre un objectif à deux fois la distance entre l’entrée et la protection ; il n’est pas une estimation statistique du prix futur ni un ordre placé.
 
@@ -147,18 +150,22 @@ mvn clean test
 mvn spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
-Les migrations V6 et V7 s’appliquent automatiquement avec Flyway. Les migrations V1 à V5 ne sont pas modifiées. La planification reste arrêtée tant que `MARKET_SCHEDULER_ENABLED` n’est pas `true`. Le profil PostgreSQL et les variables de connexion doivent être chargés selon `CONFIGURATION.md`. La collecte X reste indépendante, désactivée par défaut, sans planification dans ce lot.
+Les migrations V6, V7 et V8 s’appliquent automatiquement avec Flyway. Les migrations V1 à V5 ne sont pas modifiées. La planification reste arrêtée tant que `MARKET_SCHEDULER_ENABLED` n’est pas `true`. Le profil PostgreSQL et les variables de connexion doivent être chargés selon `CONFIGURATION.md`. La collecte X reste indépendante, désactivée par défaut, sans planification dans ce lot.
 
 Pour activer volontairement les appels périodiques : renseigner la clé Twelve Data, vérifier les marchés et quotas, puis définir `MARKET_SCHEDULER_ENABLED=true`. Le rythme de traitement dépend de `MARKET_WORKER_DELAY_MS` et des limites locales. Avec une offre gratuite, des tâches peuvent rester différées ; le logiciel ne garantit pas la couverture des 130 actifs toutes les quinze minutes.
 
 ## Travail restant
 
 1. Valider le fournisseur pour 100 actions majoritairement américaines et 30 cryptos, le coût récurrent, les licences et la fraîcheur des données.
-2. Ajouter l’historique intraday long paginé, la réconciliation/correction des cours et le traitement des opérations sur titres ; importer les calendriers de marché.
-3. Automatiser les taux de change et la valorisation EUR des actions américaines ; améliorer les contrôles de retard et la gestion hors séance.
+2. Ajouter l’historique intraday long, les corrections de cours et opérations sur titres ; étendre les calendriers aux autres places et séances particulières.
+3. Automatiser les taux de change et qualifier les calendriers/horaires des fournisseurs FX ; l’horodatage explicite et le contrôle de validité sont livrés.
 4. Définir et tester les règles de protection, cibles de prix et ventes selon les horizons ; ajouter des backtests sans anticipation, frais et glissement inclus.
-5. Intégrer le correctif podcasts déjà testé séparément, puis les extractions financières et le scoring global expliqué.
-   Pour le module social déjà présent : automatiser la classification et le regroupement des événements, confirmer les sources, ajouter les collecteurs manquants et calibrer les scores.
+5. Intégrer le correctif podcasts, automatiser la classification des textes et valider indépendamment les nouvelles règles explicatives.
+   Les événements structurés, la collecte RSS et la combinaison explicative sont présents ; la corroboration automatique, les collecteurs sociaux supplémentaires et le calibrage restent à faire.
 6. Développer le front Android, les graphiques interactifs et les notifications push, avec authentification avant exposition réseau.
 
 Aucune performance d’investissement n’est démontrée par ces tests logiciels. Aucun ordre de marché n’est transmis. Le budget de perte est un déclencheur de suivi et ne garantit pas un plafond d’exécution réel.
+
+## Modules et configuration du lot V8
+
+Le [guide local complet](BACKEND_LOCAL.md) couvre les calendriers, la saisonnalité, les flux, la validation des paroles et les versions de règles. Les explications sont accessibles à `/api/v1/explanations/{symbol}` pour DAY, MONTH ou YEAR ; l’ancienne route `/api/v1/investment/explain/{symbol}` est conservée pour compatibilité. Les [résultats de validation](VALIDATION.md) distinguent tests automatiques, sources réelles et limites restantes.

@@ -11,8 +11,8 @@ import java.util.*;
 
 @Service
 public class PortfolioMonitor {
-    private final PortfolioService portfolios; private final JdbcTemplate db; private final Clock clock;
-    public PortfolioMonitor(PortfolioService portfolios,JdbcTemplate db,Clock clock){this.portfolios=portfolios;this.db=db;this.clock=clock;}
+    private final PortfolioService portfolios; private final JdbcTemplate db; private final Clock clock;private final lu.bourse.engine.calendar.MarketCalendarService calendars;
+    public PortfolioMonitor(PortfolioService portfolios,JdbcTemplate db,Clock clock,lu.bourse.engine.calendar.MarketCalendarService calendars){this.portfolios=portfolios;this.db=db;this.clock=clock;this.calendars=calendars;}
     @Transactional public PortfolioService.Risk evaluate(long portfolioId){
         // Serialize monitor instances and trade/mark writes for the same portfolio.
         db.queryForList("SELECT id FROM portfolios WHERE id=? FOR UPDATE",portfolioId);
@@ -29,20 +29,26 @@ public class PortfolioMonitor {
             }
         }
         var risk=portfolios.evaluate(portfolioId);
-        if(!risk.status().equals("OK"))return risk;
+        // A missing quote on another asset does not suppress a review on a fresh position.
+        if(risk.status().equals("LOSS_LIMIT_REACHED"))return risk;
         for(var p:positions)if(p.status().equals("OPEN")){
+            var mark=db.queryForList("SELECT * FROM position_marks WHERE position_id=?",p.id());
+            if(mark.isEmpty())continue;var m=mark.getFirst();
+            var quality=calendars.quality(p.assetId(),lu.bourse.engine.persistence.SqlIds.instant(m.get("observed_at")),lu.bourse.engine.persistence.SqlIds.instant(m.get("fx_observed_at")),!p.currency().equals(base),now);
+            if(!quality.usable()||!quality.market().marketState().equals("OPEN"))continue;
             Timeframe tf=Timeframe.parse(p.signalTimeframe());
             var bars=db.query("SELECT open_time,close_price FROM market_candles WHERE asset_id=? AND timeframe=? AND open_time<=? ORDER BY open_time DESC LIMIT 250",
-                    (r,i)->new Bar(r.getTimestamp(1).toInstant(),r.getBigDecimal(2)),p.assetId(),tf.code(),Timestamp.from(now.minus(tf.duration())));
+                    (r,i)->new Bar(r.getTimestamp(1).toInstant(),r.getBigDecimal(2)),p.assetId(),tf.code(),Timestamp.from(now));
+            bars=bars.stream().filter(b->!calendars.barClose(p.assetId(),b.time(),tf.duration()).isAfter(now)).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
             if(bars.size()<36)continue;
-            Collections.reverse(bars);Bar last=bars.getLast();Instant closed=tf.closeTime(last.time());
+            Collections.reverse(bars);Bar last=bars.getLast();Instant closed=calendars.barClose(p.assetId(),last.time(),tf.duration());
             if(closed.isBefore(p.openedAt()) || closed.isBefore(now.minus(tf.duration().multipliedBy(2))))continue;
             var prices=bars.stream().map(Bar::close).toList();
             var previous=FinancialIndicators.calculate(prices.subList(0,prices.size()-1));
             var current=FinancialIndicators.calculate(prices);
             if(previous.macdHistogram().signum()>=0 && current.macdHistogram().signum()<0){
                 String key="position-"+p.id()+"-macd-"+tf.code()+"-"+closed.getEpochSecond();
-                portfolios.alert(portfolioId,p.id(),"MACD_REVIEW",key,"Bearish MACD crossing on "+tf.code()+" for "+p.horizon()+" holding; review only, not an automatic sell order.",closed);
+                portfolios.alert(portfolioId,p.id(),"MACD_REVIEW",key,"Bearish MACD crossing on "+tf.code()+" for "+p.horizon()+" holding; portfolio valuation status="+risk.status()+"; review only, not an automatic sell order.",closed);
             }
         }
         return risk;

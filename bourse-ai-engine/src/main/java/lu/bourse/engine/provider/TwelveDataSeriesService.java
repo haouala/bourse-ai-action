@@ -15,10 +15,10 @@ import java.util.*;
 /** Recent native provider bars. A 5,000-bar page is not advertised as ten years of intraday history. */
 @Service
 public class TwelveDataSeriesService {
-    private final ProviderHttp http; private final HistoryService history; private final ImportJobService jobs; private final Clock clock;
+    private final ProviderHttp http; private final HistoryService history; private final ImportJobService jobs; private final Clock clock;private final lu.bourse.engine.calendar.MarketCalendarService calendars;
     @Value("${market.twelve-data.base-url}") private String base;
     @Value("${market.twelve-data.api-key:}") private String key;
-    public TwelveDataSeriesService(ProviderHttp http,HistoryService history,ImportJobService jobs,Clock clock){this.http=http;this.history=history;this.jobs=jobs;this.clock=clock;}
+    public TwelveDataSeriesService(ProviderHttp http,HistoryService history,ImportJobService jobs,Clock clock,lu.bourse.engine.calendar.MarketCalendarService calendars){this.http=http;this.history=history;this.jobs=jobs;this.clock=clock;this.calendars=calendars;}
     public HistoryService.ImportResult sync(Map<String,Object> asset,String code){
         Timeframe tf=Timeframe.parse(code);
         if(key.isBlank())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Set TWELVE_DATA_API_KEY");
@@ -34,7 +34,7 @@ public class TwelveDataSeriesService {
             for(JsonNode v:values){
                 String dt=v.path("datetime").asText();
                 Instant at=code.equals("1d")?LocalDate.parse(dt).atStartOfDay(ZoneOffset.UTC).toInstant():LocalDateTime.parse(dt,DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")).toInstant(ZoneOffset.UTC);
-                if(!tf.isClosed(at,now))continue;
+                if(calendars.barClose(((Number)asset.get("id")).longValue(),at,tf.duration()).isAfter(now))continue;
                 // No fabricated zero volume: unavailable crypto volume must remain an explicit error.
                 bars.add(new HistoryService.PriceBar(at,number(v,"open"),number(v,"high"),number(v,"low"),number(v,"close"),number(v,"volume")));
             }

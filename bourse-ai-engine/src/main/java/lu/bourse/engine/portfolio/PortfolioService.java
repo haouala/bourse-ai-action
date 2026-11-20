@@ -18,18 +18,21 @@ public class PortfolioService {
     private final JdbcTemplate db;
     private final AssetRepository assets;
     private final Clock clock;
-    public PortfolioService(JdbcTemplate db, AssetRepository assets, Clock clock) {
-        this.db=db; this.assets=assets; this.clock=clock;
+    private final lu.bourse.engine.calendar.MarketCalendarService calendars;
+    public PortfolioService(JdbcTemplate db, AssetRepository assets, Clock clock, lu.bourse.engine.calendar.MarketCalendarService calendars) {
+        this.db=db; this.assets=assets; this.clock=clock;this.calendars=calendars;
     }
     public record CreatePortfolio(String name, String baseCurrency, BigDecimal initialCapital, BigDecimal maxLossAmount) {}
     public record Buy(String clientOrderId, String symbol, BigDecimal quantity, BigDecimal price,
                       BigDecimal fees, BigDecimal fxToBase, Instant executedAt, String horizon) {}
     public record Trade(String clientOrderId, String side, BigDecimal quantity, BigDecimal price,
                         BigDecimal fees, BigDecimal fxToBase, Instant executedAt) {}
-    public record Mark(BigDecimal price, BigDecimal fxToBase, Instant observedAt, String source) {}
+    public record Mark(BigDecimal price, BigDecimal fxToBase, Instant observedAt, String source, Instant fxObservedAt) {
+        public Mark(BigDecimal price,BigDecimal fxToBase,Instant observedAt,String source){this(price,fxToBase,observedAt,source,observedAt);}
+    }
     public record Risk(long portfolioId, String baseCurrency, BigDecimal cash, BigDecimal knownEquity,
                        BigDecimal loss, BigDecimal maxLossAmount, BigDecimal remainingLossBudget,
-                       int missingMarks, int staleMarks, String status, Instant evaluatedAt) {}
+                       int missingMarks, int staleMarks, String status, Instant evaluatedAt, String valuationBasis, List<lu.bourse.engine.calendar.MarketCalendarService.Quality> quality) {}
     public record Position(long id, long assetId, String symbol, String currency, BigDecimal quantity,
                            BigDecimal averageEntryPrice, BigDecimal remainingCostBase, String horizon,
                            String signalTimeframe, String status, Instant openedAt) {}
@@ -110,13 +113,14 @@ public class PortfolioService {
     public void mark(long portfolioId,long positionId,Mark r) {
         var portfolio=lock(portfolioId); Position p=owned(portfolioId,positionId);
         if(r==null) bad("Missing mark"); positive(r.price()); positive(r.fxToBase()); past(r.observedAt());
+        Instant fxAt=r.fxObservedAt()==null?r.observedAt():r.fxObservedAt();past(fxAt);
         if(r.observedAt().isBefore(p.openedAt()) || r.source()==null || !r.source().matches("[A-Za-z0-9._-]{1,64}")) bad("Invalid mark timestamp or source");
         if(!p.status().equals("OPEN")) conflict("Position is closed");
         validateFx(portfolio,p.currency(),r.fxToBase());
         var old=db.queryForList("SELECT * FROM position_marks WHERE position_id=?",positionId);
         if(!old.isEmpty() && SqlIds.instant(old.getFirst().get("observed_at")).isAfter(r.observedAt())) conflict("Out-of-order mark");
-        if(old.isEmpty()) db.update("INSERT INTO position_marks(position_id,price_quote,fx_to_base,observed_at,source) VALUES (?,?,?,?,?)",positionId,r.price(),r.fxToBase(),Timestamp.from(r.observedAt()),r.source());
-        else db.update("UPDATE position_marks SET price_quote=?,fx_to_base=?,observed_at=?,source=?,updated_time=CURRENT_TIMESTAMP WHERE position_id=?",r.price(),r.fxToBase(),Timestamp.from(r.observedAt()),r.source(),positionId);
+        if(old.isEmpty()) db.update("INSERT INTO position_marks(position_id,price_quote,fx_to_base,observed_at,source,fx_observed_at) VALUES (?,?,?,?,?,?)",positionId,r.price(),r.fxToBase(),Timestamp.from(r.observedAt()),r.source(),Timestamp.from(fxAt));
+        else db.update("UPDATE position_marks SET price_quote=?,fx_to_base=?,observed_at=?,source=?,fx_observed_at=?,updated_time=CURRENT_TIMESTAMP WHERE position_id=?",r.price(),r.fxToBase(),Timestamp.from(r.observedAt()),r.source(),Timestamp.from(fxAt),positionId);
     }
 
     @Transactional(readOnly=true)
@@ -129,27 +133,29 @@ public class PortfolioService {
     public Risk evaluate(long portfolioId) {
         var portfolio=lock(portfolioId); Instant now=clock.instant();
         BigDecimal initial=amount(portfolio,"initial_capital"),maxLoss=amount(portfolio,"max_loss_amount"),cash=cash(portfolioId,initial),equity=cash;
-        int missing=0,stale=0;
+        int missing=0,stale=0,estimated=0;
+        var quality=new ArrayList<lu.bourse.engine.calendar.MarketCalendarService.Quality>();
         for(Position p:positions(portfolioId)) if(p.status().equals("OPEN")) {
             var marks=db.queryForList("SELECT * FROM position_marks WHERE position_id=?",p.id());
-            if(marks.isEmpty()){missing++;continue;}
+            if(marks.isEmpty()){missing++;quality.add(calendars.quality(p.assetId(),null,null,!p.currency().equals(portfolio.get("base_currency")),now));continue;}
             var m=marks.getFirst(); Instant at=SqlIds.instant(m.get("observed_at"));
-            // Current valuations always require recent observations, even for long-term holdings.
-            if(at.isBefore(now.minus(Duration.ofMinutes(20)))) stale++;
+            var q=calendars.quality(p.assetId(),at,SqlIds.instant(m.get("fx_observed_at")),!p.currency().equals(portfolio.get("base_currency")),now);quality.add(q);
+            if(!q.usable())stale++;if(q.estimated())estimated++;
             equity=equity.add(p.quantity().multiply(amount(m,"price_quote")).multiply(amount(m,"fx_to_base")));
         }
         equity=money(equity);
         boolean complete=missing==0 && stale==0;
         BigDecimal loss=complete?initial.subtract(equity).max(BigDecimal.ZERO):null;
         BigDecimal remaining=complete?maxLoss.subtract(loss).max(BigDecimal.ZERO):null;
-        String status=missing>0?"DATA_INCOMPLETE":stale>0?"STALE_DATA":loss.compareTo(maxLoss)>=0?"LOSS_LIMIT_REACHED":"OK";
+        String invalid=quality.stream().filter(q->!q.usable()).map(lu.bourse.engine.calendar.MarketCalendarService.Quality::status).filter(x->!x.equals("STALE_DATA")).findFirst().orElse("STALE_DATA");
+        String status=missing>0?"DATA_INCOMPLETE":stale>0?invalid:loss.compareTo(maxLoss)>=0?"LOSS_LIMIT_REACHED":estimated>0?(quality.stream().anyMatch(q->q.estimated()&&q.market().marketState().equals("OPEN"))?"OPENING_REFERENCE_ESTIMATE":"MARKET_CLOSED_ESTIMATE"):"OK";
         db.update("INSERT INTO portfolio_risk_snapshots(portfolio_id,evaluated_at,status,cash_base,known_equity_base,loss_base,missing_marks,stale_marks) VALUES (?,?,?,?,?,?,?,?)",portfolioId,Timestamp.from(now),status,cash,equity,loss,missing,stale);
         boolean latched=(Boolean)portfolio.get("risk_latched");
         if(status.equals("LOSS_LIMIT_REACHED") && !latched) {
             alert(portfolioId,null,"LOSS_LIMIT","portfolio-"+portfolioId+"-loss-"+UUID.randomUUID(),"Global loss budget reached. Review and reduce exposure; no broker order was sent.",now);
             db.update("UPDATE portfolios SET risk_latched=TRUE,updated_time=CURRENT_TIMESTAMP WHERE id=?",portfolioId);
-        } else if(status.equals("OK") && latched) db.update("UPDATE portfolios SET risk_latched=FALSE,updated_time=CURRENT_TIMESTAMP WHERE id=?",portfolioId);
-        return new Risk(portfolioId,(String)portfolio.get("base_currency"),cash,equity,loss,maxLoss,remaining,missing,stale,status,now);
+        } else if(complete && loss.compareTo(maxLoss)<0 && latched) db.update("UPDATE portfolios SET risk_latched=FALSE,updated_time=CURRENT_TIMESTAMP WHERE id=?",portfolioId);
+        return new Risk(portfolioId,(String)portfolio.get("base_currency"),cash,equity,loss,maxLoss,remaining,missing,stale,status,now,!complete?"INCOMPLETE":estimated>0?"LAST_CLOSE_INCLUDED":"RECENT_MARKS",List.copyOf(quality));
     }
 
     /** Chart overlays are scenarios, not executable orders or forecasts. */

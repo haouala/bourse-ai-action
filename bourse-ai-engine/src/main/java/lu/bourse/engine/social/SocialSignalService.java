@@ -101,7 +101,7 @@ public class SocialSignalService {
     private Score score(Map<String,Object> e,long assessmentId){
         long eventId=((Number)e.get("id")).longValue();Instant now=clock.instant();
         var a=db.queryForMap("SELECT x.*,a.symbol FROM social_asset_assessments x JOIN assets a ON a.id=x.asset_id WHERE x.id=?",assessmentId);
-        var sources=db.queryForList("SELECT p.id,p.published_at,p.collected_at,p.source_url,p.retracted,a.id AS actor_id,a.identity_confirmed,a.identity_evidence_url,a.display_name,a.role_label FROM social_event_publications l JOIN social_publications p ON p.id=l.publication_id JOIN social_actors a ON a.id=p.actor_id WHERE l.event_id=? ORDER BY p.published_at,p.id",eventId);
+        var sources=db.queryForList("SELECT p.id,p.published_at,p.collected_at,p.source_url,p.retracted,p.attribution_kind,a.id AS actor_id,a.identity_confirmed,a.identity_evidence_url,a.display_name,a.role_label FROM social_event_publications l JOIN social_publications p ON p.id=l.publication_id JOIN social_actors a ON a.id=p.actor_id WHERE l.event_id=? ORDER BY p.published_at,p.id",eventId);
         int authority=0;boolean verified=false;Instant published=null;
         var authorityInputs=new ArrayList<Map<String,Object>>();
         for(var s:sources){

@@ -1,6 +1,6 @@
 # Publications sociales et événements de marché
 
-Ajout du 19 novembre 2026. Ce module étend le code du lot 3. Il ne modifie pas le document d’analyse Word/PDF et ne constitue pas une stratégie de trading validée.
+Ajout du 19 novembre 2026. Ce module étend le code du lot 3. Il est repris dans le document d’analyse version 1.2 et ne constitue pas une stratégie de trading validée.
 
 ## Fonctionnement livré
 
@@ -74,7 +74,7 @@ Si l’impact potentiel atteint 70 et la confiance 50, une alerte `SOCIAL_EVENT_
 
 Le retrait explicite d’un événement recalcule ses évaluations à zéro et produit une alerte `SOCIAL_EVENT_CORRECTION`. Les précédents scores et alertes restent consultables. Une correction de texte doit être conservée sous un nouvel identifiant de publication ; le contenu d’origine n’est pas écrasé silencieusement.
 
-Ces alertes ne modifient pas la limite de perte du portefeuille, n’exécutent aucun ordre et ne sont pas encore envoyées en push Android. Le score social reste séparé du MACD et des autres informations : leur combinaison dans un score global et les règles de priorité doivent encore être validées. Ne jamais additionner l’historique des recalculs ni compter la même annonce à la fois comme plusieurs événements sociaux, nouvelles et podcasts. Le rattachement transversal news/podcasts reste à développer.
+Ces alertes ne modifient pas la limite de perte du portefeuille, n’exécutent aucun ordre et ne sont pas encore envoyées en push Android. Le score social reste enregistré séparément ; le module V8 d’explication combine ses contributions avec MACD/RSI et variation de marge nette dans un score expérimental versionné. Le calibrage et les règles de priorité restent à valider. Ne jamais additionner l’historique des recalculs ni compter la même annonce à la fois comme plusieurs événements sociaux, nouvelles et podcasts. Le rattachement d’articles collectés aux événements est manuel ; la résolution automatique et l’intégration des podcasts restent à développer.
 
 ## Collecte X facultative
 
@@ -150,6 +150,10 @@ Le code produit les notes et leur justification à partir de ces entrées. L’e
 
 Chaque calcul conserve la version de l’événement, la méthode, les facteurs, le rôle, les profils d’autorité, les sources et dates dans `input_snapshot`. En backtest, un score n’est disponible qu’à `scored_at`, après collecte et classification ; l’attribuer rétroactivement à `published_at` introduirait une anticipation. Les profils historiques renseignés aujourd’hui ne deviennent pas pour autant une preuve de ce qui était connu à l’époque.
 
-Prochaines étapes : extraction sémantique avec provenance et traitement multilingue ; vérification/corroboration des annonces ; résolution automatique des événements et tickers ; graphe d’exposition sectorielle et géographique ; nouveaux collecteurs autorisés ; recalcul planifié ; modèle de réaction mesuré sur prix historiques, avec référence de marché, spreads et latence ; combinaison avec news/podcasts/indicateurs ; interface Android et push.
+Prochaines étapes : extraction sémantique avec provenance et traitement multilingue ; vérification/corroboration des annonces ; résolution automatique des événements et tickers ; graphe d’exposition sectorielle et géographique ; nouveaux collecteurs autorisés ; recalcul planifié ; modèle de réaction mesuré sur prix historiques, avec référence de marché, spreads et latence ; validation de la combinaison avec news/podcasts/indicateurs ; interface Android et push.
 
 Sources techniques : [API des publications d’un compte](https://docs.x.com/x-api/users/get-posts), [tarification X](https://docs.x.com/x-api/getting-started/pricing). Exemple historique : [décret américain du 2 avril 2025 sur les tarifs réciproques](https://www.govinfo.gov/app/details/DCPD-202500425/). Cet exemple ne présume pas des tarifs encore applicables aujourd’hui et ne prouve pas à lui seul la cause d’une variation boursière.
+
+## Extension informations du 20 novembre 2026
+
+Les flux RSS/Atom et la validation des citations sont disponibles dans `/api/v1/information`. Les noms correspondent d’abord à NAME_MATCH_ONLY ; une attribution exige un passage exact et une validation humaine. Les publications institutionnelles ne certifient pas automatiquement l’identité de chaque personne citée. Voir [BACKEND_LOCAL.md](BACKEND_LOCAL.md).

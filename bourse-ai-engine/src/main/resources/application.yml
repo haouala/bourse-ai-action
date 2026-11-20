@@ -1,5 +1,11 @@
 server:
   port: ${SERVER_PORT:8081}
+information:
+  catalog: ${INFORMATION_CATALOG:classpath:information-sources.json}
+  minimum-interval-seconds: ${INFORMATION_MINIMUM_INTERVAL_SECONDS:900}
+  scheduler:
+    enabled: ${INFORMATION_SCHEDULER_ENABLED:false}
+    delay-ms: ${INFORMATION_SCHEDULER_DELAY_MS:60000}
 social:
   x:
     enabled: ${SOCIAL_X_ENABLED:false}

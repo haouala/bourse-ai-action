@@ -12,7 +12,8 @@ public class HistoryService {
  private final AssetRepository assets;
  private final MarketCandleRepository candles;
  private final java.time.Clock clock;
- public HistoryService(AssetRepository assets,MarketCandleRepository candles,java.time.Clock clock){this.assets=assets;this.candles=candles;this.clock=clock;}
+ private final lu.bourse.engine.calendar.MarketCalendarService calendars;
+ public HistoryService(AssetRepository assets,MarketCandleRepository candles,java.time.Clock clock,lu.bourse.engine.calendar.MarketCalendarService calendars){this.assets=assets;this.candles=candles;this.clock=clock;this.calendars=calendars;}
  public record PriceBar(Instant openTime,BigDecimal open,BigDecimal high,BigDecimal low,BigDecimal close,BigDecimal volume) {}
  public record ImportRequest(String symbol,String name,String assetType,String currency,String timeframe,String provider,List<PriceBar> bars) {}
  public record ImportResult(String symbol,int inserted,int skipped) {}
@@ -29,7 +30,7 @@ public class HistoryService {
   Set<Instant> seen=new HashSet<>();
   for(PriceBar b:request.bars()) {
    if(b==null || b.openTime()==null || b.openTime().isAfter(clock.instant()) || b.open()==null || b.high()==null || b.low()==null || b.close()==null || b.volume()==null || b.open().signum()<=0 || b.high().compareTo(b.open())<0 || b.high().compareTo(b.close())<0 || b.low().compareTo(b.open())>0 || b.low().compareTo(b.close())>0 || b.low().signum()<=0 || b.volume().signum()<0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid OHLCV bar");
-   if(!period.isClosed(b.openTime(),clock.instant())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Only completed candles may be imported");
+   if(calendars.barClose(asset.getId(),b.openTime(),period.duration()).isAfter(clock.instant())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Only completed candles may be imported");
    if(!seen.add(b.openTime()) || candles.existsByAssetIdAndTimeframeAndOpenTime(asset.getId(),request.timeframe(),b.openTime())) { skipped++;continue; }
    candles.save(new MarketCandleEntity(asset,request.timeframe(),b.openTime(),b.open(),b.high(),b.low(),b.close(),b.volume(),request.provider())); inserted++;
   }
@@ -40,7 +41,7 @@ public class HistoryService {
   if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol or timeframe");
   Timeframe period=Timeframe.parse(timeframe);
   String symbol=rawSymbol.toUpperCase(Locale.ROOT);
-  List<MarketCandleEntity> bars=new ArrayList<>(candles.findTop250ByAssetSymbolAndTimeframeOrderByOpenTimeDesc(symbol,timeframe).stream().filter(b->period.isClosed(b.getOpenTime(),clock.instant())).toList());
+  List<MarketCandleEntity> bars=new ArrayList<>(candles.findTop250ByAssetSymbolAndTimeframeOrderByOpenTimeDesc(symbol,timeframe).stream().filter(b->!calendars.barClose(b.getAsset().getId(),b.getOpenTime(),period.duration()).isAfter(clock.instant())).toList());
   if(bars.size()<35) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"At least 35 completed candles required; found "+bars.size());
   Collections.reverse(bars);
   List<BigDecimal> prices=bars.stream().map(MarketCandleEntity::getClosePrice).toList();
