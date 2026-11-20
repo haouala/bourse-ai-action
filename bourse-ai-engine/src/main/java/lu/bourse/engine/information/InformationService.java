@@ -86,11 +86,12 @@ public class InformationService {
         }
         int inserted=0;Instant collected=clock.instant();
         for(var item:items){
-            String key=SeasonalityService.hash(item.key()),hash=SeasonalityService.hash(item.title()+"\n"+item.summary()+"\n"+item.publishedAt()+"\n"+item.url()+"\n"+item.author());
+            String key=SeasonalityService.hash(item.key()),hash=SeasonalityService.hash(item.title()+"\n"+item.summary()+"\n"+item.publishedAt()+"\n"+item.url()+"\n"+item.author()+(item.audioUrl()==null&&item.transcriptUrl()==null?"":"\n"+item.audioUrl()+"\n"+item.transcriptUrl()));
             if(db.queryForObject("SELECT COUNT(*) FROM information_items WHERE source_code=? AND external_key=? AND content_hash=?",Integer.class,code,key,hash)>0)continue;
             String review=item.publishedAt()==null?"DATE_MISSING":item.publishedAt().isAfter(collected)?"FUTURE_DATE":"PENDING_REVIEW";Long publication=null;
             if(review.equals("PENDING_REVIEW"))publication=social.publication(new SocialSignalService.Publication(publisher,key+"-"+hash.substring(0,12),item.title()+"\n"+item.summary(),item.url(),item.publishedAt()));
             long id=SqlIds.insert(db,"INSERT INTO information_items(source_code,external_key,content_hash,title,summary,original_url,author_text,published_at,collected_at,publication_id,review_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)",code,key,hash,item.title(),item.summary(),item.url(),item.author(),ts(item.publishedAt()),ts(collected),publication,review);inserted++;
+            db.update("UPDATE information_items SET audio_url=?,transcript_url=? WHERE id=?",item.audioUrl(),item.transcriptUrl(),id);
             for(var actor:db.queryForList("SELECT id,display_name FROM social_actors WHERE role_label NOT LIKE 'Institutional publisher%'")){
                 String name=(String)actor.get("display_name");
                 if(Pattern.compile("(?<![\\p{L}\\p{N}])"+Pattern.quote(name)+"(?![\\p{L}\\p{N}])",Pattern.CASE_INSENSITIVE|Pattern.UNICODE_CASE).matcher(item.title()+" "+item.summary()).find())db.update("INSERT INTO information_mentions(item_id,actor_id,matched_name) VALUES (?,?,?)",id,actor.get("id"),name);
