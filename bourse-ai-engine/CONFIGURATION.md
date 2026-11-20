@@ -73,7 +73,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=postgres
 
 Adapter `DB_URL`, `DB_USER` et `DB_PASSWORD` à la base utilisée. Les valeurs du fichier exemple correspondent au service Docker fourni. Sur une base déjà installée, conserver ses identifiants existants. Le mot de passe PostgreSQL n'a pas de valeur par défaut dans cette configuration.
 
-Les migrations Flyway V1 à V5 sont appliquées au démarrage. Ne pas modifier les anciennes migrations sur une base déjà initialisée. V5 ajoute `provider_quota_locks` et `provider_api_calls`.
+Les migrations Flyway V1 à V8 sont appliquées au démarrage. Ne pas modifier les anciennes migrations sur une base déjà initialisée. V5 ajoute les quotas ; V6 les positions et le suivi ; V7 les événements sociaux ; V8 les calendriers, les sources d'informations, la saisonnalité et les explications. Voir [le guide local des nouveaux modules](docs/BACKEND_LOCAL.md).
 
 ## Budgets d'appels
 
@@ -83,7 +83,7 @@ Les migrations Flyway V1 à V5 sont appliquées au démarrage. Ne pas modifier l
 | EODHD | 18 crédits | 20 crédits | `EODHD_DAILY_LIMIT`, `EODHD_MINUTE_LIMIT` |
 | FMP | 240 appels | 5 appels | `FMP_DAILY_LIMIT`, `FMP_MINUTE_LIMIT` |
 
-Ces budgets gardent une marge sous les plafonds gratuits annoncés (Twelve Data 800/jour, EODHD 20/jour, FMP 250/jour). Le plafond FMP par minute est une règle prudente de l'application. Les limites sont configurables à la baisse ; une limite nulle bloque le fournisseur. Cette version rejette les valeurs supérieures aux plafonds gratuits pris en charge.
+Ces budgets sont les limites locales historiques configurées dans le projet, pas une confirmation des droits commerciaux actuels d'un compte. Le plafond FMP par minute est aussi une règle interne. Les limites sont configurables à la baisse ; une limite nulle bloque le fournisseur. Cette version conserve les plafonds pris en charge par son validateur ; vérifier l'offre et le coût réels avant toute activation.
 
 Les fournisseurs ne réinitialisent pas tous leur quota à la même heure. L'application utilise des fenêtres glissantes, plus conservatrices : **minuit ne remet pas ses compteurs à zéro**. Une réservation sort de la fenêtre après 24h ou 60 secondes.
 
@@ -125,4 +125,5 @@ mvn clean verify
 
 Les tests d'intégration effacent leurs tables de données : **ne jamais pointer ces variables sur une base à conserver**. Sans ces variables, les tests n'utilisent pas la base PostgreSQL de l'application.
 
-Le module ne déclenche aucun import au démarrage. Les podcasts, l'analyse LLM, le scoring des intervenants et les notifications restent des étapes ultérieures. Les routes de développement doivent être protégées avant toute exposition sur Internet.
+Par défaut, aucun import n'est déclenché au démarrage. Les activations marché, RSS et X sont indépendantes. Le module social et les explications déterministes sont présents ; la classification sémantique par LLM, l'intégration du correctif podcasts et les notifications push restent des étapes ultérieures. Les routes de développement doivent être protégées avant toute exposition sur Internet.
+

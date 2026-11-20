@@ -1,0 +1,323 @@
+{
+  "date": "2026-11-20",
+  "java": "21.0.13.1",
+  "maven": "3.9.9",
+  "springBoot": "3.5.7",
+  "h2": {
+    "command": "mvn clean verify",
+    "tests": 103,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "postgres": {
+    "version": "17.7",
+    "command": "mvn test with dedicated test database",
+    "tests": 103,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "name": "BackendModulesApiTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "CalendarIntegrationTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "ExplanationIntegrationTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "FeedParserTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "InformationIntegrationTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "MigrationUpgradeTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "MonitoringApiIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "PortfolioIntegrationTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "IntradayFlowIntegrationTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "ProviderFlowIntegrationTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "QuotaIntegrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "SeasonalityIntegrationTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "SeasonalityStatisticsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "FinancialIndicatorsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "SocialScoringTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "SocialSignalIntegrationTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "XCollectorIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "migrationUpgrade": "V7 populated to V8 verified on H2 and PostgreSQL",
+  "schema": {
+    "tables": 42,
+    "columns": 357
+  },
+  "packagedSmoke": {
+    "syntheticCandles": 40,
+    "syntheticLoss": 5,
+    "syntheticRemainingBudget": 95,
+    "restartPersistence": true,
+    "publicFeedRuns": 12,
+    "publicItemsInserted": 340,
+    "realMarketProviderCalls": 0,
+    "paidApiCalls": 0,
+    "brokerOrders": 0,
+    "feeds": [
+      {
+        "source": "ALJAZEERA_EN",
+        "status": "SUCCEEDED",
+        "inserted": 25,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "BBC_BUSINESS",
+        "status": "SUCCEEDED",
+        "inserted": 56,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "BOE_NEWS",
+        "status": "SUCCEEDED",
+        "inserted": 50,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "BOE_SPEECHES",
+        "status": "SUCCEEDED",
+        "inserted": 50,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "ECB_PRESS",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_PRESS",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_SPEECHES",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_TESTIMONY",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FRANCE24_FR",
+        "status": "SUCCEEDED",
+        "inserted": 24,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "LEMONDE_ECONOMIE",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "UK_TREASURY",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "UN_NEWS",
+        "status": "SUCCEEDED",
+        "inserted": 30,
+        "classification": "PENDING_REVIEW"
+      }
+    ]
+  },
+  "packagedFollowUp": {
+    "restartPersistence": true,
+    "publicItemsInserted": 284,
+    "feeds": [
+      {
+        "source": "ALJAZEERA_EN",
+        "status": "SUCCEEDED",
+        "inserted": 25,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "BBC_BUSINESS",
+        "status": "FAILED",
+        "http": 502
+      },
+      {
+        "source": "BOE_NEWS",
+        "status": "SUCCEEDED",
+        "inserted": 50,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "BOE_SPEECHES",
+        "status": "SUCCEEDED",
+        "inserted": 50,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "ECB_PRESS",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_PRESS",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_SPEECHES",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FED_TESTIMONY",
+        "status": "SUCCEEDED",
+        "inserted": 15,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "FRANCE24_FR",
+        "status": "SUCCEEDED",
+        "inserted": 24,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "LEMONDE_ECONOMIE",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "UK_TREASURY",
+        "status": "SUCCEEDED",
+        "inserted": 20,
+        "classification": "PENDING_REVIEW"
+      },
+      {
+        "source": "UN_NEWS",
+        "status": "SUCCEEDED",
+        "inserted": 30,
+        "classification": "PENDING_REVIEW"
+      }
+    ],
+    "transientFailure": {
+      "source": "BBC_BUSINESS",
+      "code": "HTTP_503",
+      "policy": "Persisted failure and 15-minute backoff; no other source stopped"
+    },
+    "recovery": {
+      "source": "BBC_BUSINESS",
+      "status": "SUCCEEDED",
+      "inserted": 56,
+      "startedAt": "2026-11-20T01:01:44.258+00:00",
+      "failedRunPreserved": true,
+      "retryAfterBackoff": true,
+      "totalItemsAfterRecovery": 340
+    }
+  }
+}

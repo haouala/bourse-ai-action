@@ -14,7 +14,7 @@ import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
 
-/** Free EODHD: last 1 year ONLY and 20 calls/day, not a 5-year European feed. */
+/** Daily EOD history; requested depth never overrides the provider account entitlement. */
 @Service
 public class EodhdEuropeService {
  private final ProviderHttp http; private final HistoryService history;
@@ -27,20 +27,24 @@ public class EodhdEuropeService {
   this.http=http;this.history=history;this.assets=assets;this.jdbc=jdbc;this.jobs=jobs;
  }
  public SyncResult sync(String rawSymbol,String rawProviderSymbol,String rawCurrency,String rawName){
+  return sync(rawSymbol,rawProviderSymbol,rawCurrency,rawName,1,"STOCK");
+ }
+ public SyncResult sync(String rawSymbol,String rawProviderSymbol,String rawCurrency,String rawName,int years,String assetType){
+  if(years<1 || years>30 || !Set.of("STOCK","CRYPTO").contains(assetType))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid years or assetType");
   if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}") || rawProviderSymbol==null || !rawProviderSymbol.matches("[A-Za-z0-9._-]{1,80}") || rawCurrency==null || !rawCurrency.matches("[A-Z]{3}"))
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol/providerSymbol/currency");
   if(key.isBlank())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Set EODHD_API_KEY");
   String symbol=rawSymbol.toUpperCase(Locale.ROOT),providerSymbol=rawProviderSymbol.toUpperCase(Locale.ROOT);
   String name=(rawName==null||rawName.isBlank())?symbol:rawName;
   if(name.length()>255)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Name too long");
-  long job=jobs.start(symbol,"EODHD","EU_DAILY_OHLCV");
+  long job=jobs.start(symbol,"EODHD","DAILY_OHLCV");
   try {
-   LocalDate to=LocalDate.now(ZoneOffset.UTC),from=to.minusYears(1);
+   LocalDate to=LocalDate.now(ZoneOffset.UTC),from=to.minusYears(years);
    String url=UriComponentsBuilder.fromUriString(base+"/api/eod/"+providerSymbol)
     .queryParam("from",from).queryParam("to",to.minusDays(1))
     .queryParam("fmt","json").queryParam("api_token",key).build().encode().toUriString();
    JsonNode response=http.get(ProviderOperation.EODHD_DAILY,url,null);
-   if(!response.isArray() || response.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"EODHD returned no candles: verify free-plan symbol and access");
+   if(!response.isArray() || response.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"EODHD returned no candles: verify symbol and account access");
    List<HistoryService.PriceBar> bars=new ArrayList<>();
    for(JsonNode b:response){
     LocalDate date=LocalDate.parse(b.path("date").asText());
@@ -50,7 +54,7 @@ public class EodhdEuropeService {
    }
    if(bars.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"No complete daily candles");
    // Only the first provider is selected for the canonical series; alternatives remain available for comparison.
-   HistoryService.ImportResult result=history.importBars(new HistoryService.ImportRequest(symbol,name,"STOCK",rawCurrency,"1d","EODHD",bars));
+   HistoryService.ImportResult result=history.importBars(new HistoryService.ImportRequest(symbol,name,assetType,rawCurrency,"1d","EODHD",bars));
    AssetEntity asset=assets.findBySymbol(symbol).orElseThrow();
    int stored=0;
    for(HistoryService.PriceBar b:bars){
@@ -63,7 +67,7 @@ public class EodhdEuropeService {
    if(n!=null && n==0)jdbc.update("INSERT INTO asset_provider_symbols(asset_id,provider,provider_symbol) VALUES (?, 'EODHD', ?)",asset.getId(),providerSymbol);
    else jdbc.update("UPDATE asset_provider_symbols SET provider_symbol=?,updated_time=CURRENT_TIMESTAMP WHERE asset_id=? AND provider='EODHD'",providerSymbol,asset.getId());
    jobs.end(job,stored,null);
-   return new SyncResult(symbol,providerSymbol,stored,result.inserted(),result.skipped(),"EODHD","FREE plan: 1 year max; provenance kept separately");
+   return new SyncResult(symbol,providerSymbol,stored,result.inserted(),result.skipped(),"EODHD","Requested "+years+" years; actual coverage depends on provider entitlement and ticker; raw prices, adjustment unspecified");
   }catch(Exception e){jobs.end(job,0,e.getMessage()==null?"Failed":e.getMessage());throw e;}
  }
  public List<ProviderPrice> observations(String rawSymbol){
@@ -76,3 +80,4 @@ public class EodhdEuropeService {
   try{return new BigDecimal(node.path(name).asText());}catch(NumberFormatException e){throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Invalid "+name);}
  }
 }
+

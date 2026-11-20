@@ -1,5 +1,17 @@
 server:
   port: ${SERVER_PORT:8081}
+information:
+  catalog: ${INFORMATION_CATALOG:classpath:information-sources.json}
+  minimum-interval-seconds: ${INFORMATION_MINIMUM_INTERVAL_SECONDS:900}
+  scheduler:
+    enabled: ${INFORMATION_SCHEDULER_ENABLED:false}
+    delay-ms: ${INFORMATION_SCHEDULER_DELAY_MS:60000}
+social:
+  x:
+    enabled: ${SOCIAL_X_ENABLED:false}
+    bearer-token: ${SOCIAL_X_BEARER_TOKEN:}
+    monthly-post-limit: ${SOCIAL_X_MONTHLY_POST_LIMIT:0}
+    base-url: https://api.x.com
 spring:
   application:
     name: bourse-ai-engine
@@ -27,6 +39,10 @@ engine:
   risk-per-trade-eur: 5
 
 market:
+  scheduler:
+    enabled: ${MARKET_SCHEDULER_ENABLED:false}
+    worker-delay-ms: ${MARKET_WORKER_DELAY_MS:10000}
+    monitor-delay-ms: ${PORTFOLIO_MONITOR_DELAY_MS:60000}
   quotas:
     providers:
       TWELVE_DATA:
@@ -52,3 +68,4 @@ market:
   eodhd:
     base-url: https://eodhd.com
     api-key: ${EODHD_API_KEY:}
+
