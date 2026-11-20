@@ -72,7 +72,7 @@ fun Remote(store: AppStore, key: String, empty: String = "Aucune donnée disponi
 @Composable
 fun <T> DataBlock(store: AppStore, key: String, empty: String = "Aucune donnée disponible", decode: (JsonElement) -> T, content: @Composable (T) -> Unit) {
     Remote(store, key, empty) { value ->
-        val decoded = remember(value) { runCatching { decode(value) } }
+        val decoded = remember(value, decode) { runCatching { decode(value) } }
         if (decoded.isSuccess) content(decoded.getOrThrow()) else Note("Réponse du serveur incompatible : ${decoded.exceptionOrNull()?.message}", true)
     }
 }

@@ -53,7 +53,11 @@ fun BourseApp(store: AppStore) {
                 }
                 composable("seasonality/{symbol}") { SeasonalityScreen(store, it.arguments?.getString("symbol").orEmpty()) }
                 composable("rules") { RulesScreen(store) { id -> nav.previousBackStackEntry?.savedStateHandle?.set<Long?>("rulesId", id); nav.popBackStack() } }
-                composable("news") { Page("Informations", "Actualités et personnages publics") { Note("Module en cours de préparation.") } }
+                composable("news") { NewsScreen(store, { nav.navigate("news-item/$it") }, { nav.navigate("sources") }, { nav.navigate("persons") }, { nav.navigate("events") }) }
+                composable("news-item/{id}") { NewsDetailScreen(store, it.arguments?.getString("id")?.toLongOrNull() ?: 0) }
+                composable("sources") { SourcesScreen(store) }
+                composable("persons") { PersonsScreen(store) }
+                composable("events") { EventsScreen(store) }
                 composable("portfolio") { Page("Portefeuille") { Note("Module en cours de préparation.") } }
                 composable("alerts") { Page("Alertes") { Note("Module en cours de préparation.") } }
                 composable("settings") { SettingsScreen(store) }

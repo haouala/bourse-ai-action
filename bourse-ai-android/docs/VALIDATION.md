@@ -19,3 +19,7 @@ Le module 3 vérifie les quatre intervalles, les bougies ordonnées et cohérent
 ## Module 4 — analyses, versions et saisonnalité
 
 APK, Android Lint et les 24 tests cumulés réussissent, sans échec, erreur ou test ignoré. Les tests vérifient les trois horizons, les variantes immuables, la décomposition exacte des variations, les amplitudes et seuils bornés, les scores absents, les liens HTTPS distincts et les statistiques exclusivement mensuelles/trimestrielles/annuelles sans poids dans le score. Les snapshots précédents restent consultables.
+
+## Module 5 — informations, sources et personnes
+
+APK, Lint et les 30 tests cumulés réussissent, sans échec ni test ignoré. Les six nouveaux tests contrôlent les dates distinctes, les dates absentes, le filtre de source, les citations exactes et leur idempotence, la conservation du lien original, l’activation explicite des flux et le journal d’import, sans confondre mention, identité et confirmation. Le mobile consulte aussi les impacts par entreprise et leurs preuves.
