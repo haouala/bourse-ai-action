@@ -58,7 +58,7 @@ public class InformationAnalysisService {
     public Map<String,Object> asset(String symbol,String horizon){
         if(!Set.of("DAY","MONTH","YEAR").contains(horizon))bad("Invalid horizon");var ids=db.queryForList("SELECT id FROM assets WHERE symbol=?",Long.class,symbol.toUpperCase(Locale.ROOT));if(ids.isEmpty())throw new ResponseStatusException(NOT_FOUND,"Unknown asset");
         var rows=db.queryForList("SELECT p.*,a.review_status,a.created_time,a.reviewed_at,j.model,j.prompt_version,i.original_url,i.published_at,i.collected_at,i.external_key,s.publisher_group,c.scope,c.content_hash FROM information_ai_impacts p JOIN information_ai_analyses a ON a.id=p.analysis_id JOIN information_ai_jobs j ON j.id=a.job_id JOIN information_items i ON i.id=j.item_id JOIN information_sources s ON s.code=i.source_code JOIN information_contents c ON c.id=a.content_id WHERE p.asset_id=? AND p.horizon=? AND i.published_at<=? AND i.collected_at<=? ORDER BY a.id DESC,p.id",ids.getFirst(),horizon,ts(clock.instant()),ts(clock.instant()));
-        var groups=new LinkedHashMap<String,BigDecimal>();Set<String> evidenceVersions=new HashSet<>();
+        var groups=new LinkedHashMap<String,BigDecimal>();Set<String> evidenceVersions=new HashSet<>(),conflicting=new HashSet<>();
         long halfLife=switch(horizon){case "DAY"->86400;case "MONTH"->2592000;default->31536000;};
         for(var row:rows)if("APPROVED".equals(row.get("review_status"))&&row.get("proposed_score")!=null){
             // Same content under different model/prompt versions must not be added twice.
@@ -66,10 +66,12 @@ public class InformationAnalysisService {
             double age=Math.max(0,Duration.between(SqlIds.instant(row.get("published_at")),clock.instant()).toSeconds());
             BigDecimal score=((BigDecimal)row.get("proposed_score")).multiply(BigDecimal.valueOf(Math.pow(.5,age/halfLife)));
             // For repeated coverage of one event use the strongest magnitude, not a sum.
-            groups.merge((String)row.get("event_group"),score,(x,y)->x.abs().compareTo(y.abs())>=0?x:y);
+            String group=(String)row.get("event_group");if(conflicting.contains(group))continue;
+            if(groups.containsKey(group)&&groups.get(group).signum()*score.signum()<0){groups.remove(group);conflicting.add(group);}
+            else groups.merge(group,score,(x,y)->x.abs().compareTo(y.abs())>=0?x:y);
         }
         BigDecimal total=groups.values().stream().reduce(BigDecimal.ZERO,BigDecimal::add).max(new BigDecimal("-100")).min(new BigDecimal("100")).setScale(4,RoundingMode.HALF_UP);
-        return Map.of("symbol",symbol.toUpperCase(Locale.ROOT),"horizon",horizon,"proposedEvidence",rows,"approvedEventCount",groups.size(),"approvedScore",total,"attention",attention(rows),"method","AI_INFORMATION_V1_EXPERIMENTAL","limitations",List.of("Interpretation confidence is not a gain probability","Publisher count is not independently verified corroboration","Attention does not establish direction or a future price move","Same event across social and AI pipelines still requires cross-pipeline review"));
+        return Map.of("symbol",symbol.toUpperCase(Locale.ROOT),"horizon",horizon,"proposedEvidence",rows,"approvedEventCount",groups.size(),"conflictingEventCount",conflicting.size(),"approvedScore",total,"attention",attention(rows),"method","AI_INFORMATION_V1_EXPERIMENTAL","limitations",List.of("Interpretation confidence is not a gain probability","Publisher count is not independently verified corroboration","Attention does not establish direction or a future price move","Same event across social and AI pipelines still requires cross-pipeline review"));
     }
     private Map<String,Object> attention(List<Map<String,Object>> rows){Set<String> recent=new HashSet<>(),previous=new HashSet<>(),publishers=new HashSet<>(),groups=new HashSet<>();Instant now=clock.instant();
         for(var r:rows){Instant at=SqlIds.instant(r.get("published_at"));String key=r.get("publisher_group")+"|"+r.get("external_key");if(!at.isBefore(now.minusSeconds(86400))){recent.add(key);publishers.add((String)r.get("publisher_group"));groups.add((String)r.get("event_group"));}else if(!at.isBefore(now.minusSeconds(29*86400L)))previous.add(key);}

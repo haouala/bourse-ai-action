@@ -24,4 +24,3 @@ public class InformationWorkerController {
     @PostMapping("/jobs/{id}/heartbeat") public void heartbeat(@RequestHeader(value="Authorization",required=false)String auth,@RequestHeader("X-Lease-Token")String lease,@PathVariable long id){authorize(auth);analyses.heartbeat(id,lease);}
     @PostMapping("/jobs/{id}/complete") public Map<String,Long> complete(@RequestHeader(value="Authorization",required=false)String auth,@RequestHeader("X-Lease-Token")String lease,@PathVariable long id,@RequestBody InformationAnalysisService.Completion result){authorize(auth);return Map.of("analysisId",analyses.complete(id,lease,result));}
 }
-

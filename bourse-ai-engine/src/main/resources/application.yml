@@ -6,6 +6,7 @@ information:
     model: ${INFORMATION_AI_MODEL:gpt-5.4-mini-2026-03-17}
     prompt-version: information-v1
     worker-token: ${INFORMATION_WORKER_TOKEN:}
+    review-token: ${INFORMATION_REVIEW_TOKEN:}
   catalog: ${INFORMATION_CATALOG:classpath:information-sources.json}
   minimum-interval-seconds: ${INFORMATION_MINIMUM_INTERVAL_SECONDS:3600}
   scheduler:
