@@ -21,18 +21,20 @@ public class InformationWorkService {
     public record Content(String text,String scope,String url,String method,String error,List<Segment> segments){}
     public record Failure(String code,boolean retryable){}
     private final JdbcTemplate db;private final Clock clock;private final ObjectMapper json;
-    private final boolean enabled;private final String model,prompt;
+    private final boolean enabled;private final String model,prompt;private final int lookbackDays;
     public InformationWorkService(JdbcTemplate db,Clock clock,ObjectMapper json,
         @Value("${information.ai.enabled:false}")boolean enabled,
         @Value("${information.ai.model:gpt-5.4-mini-2026-03-17}")String model,
-        @Value("${information.ai.prompt-version:information-v1}")String prompt){
-        this.db=db;this.clock=clock;this.json=json;this.enabled=enabled;this.model=model;this.prompt=prompt;
+        @Value("${information.ai.prompt-version:information-v1}")String prompt,
+        @Value("${information.ai.lookback-days:7}")int lookbackDays){
+        this.db=db;this.clock=clock;this.json=json;this.enabled=enabled;this.model=model;this.prompt=prompt;this.lookbackDays=lookbackDays;
+        if(lookbackDays<1||lookbackDays>3650)throw new IllegalArgumentException("Invalid information lookback");
         if(!model.matches("[A-Za-z0-9._-]{1,100}")||!prompt.matches("[A-Za-z0-9._-]{1,80}"))throw new IllegalArgumentException("Invalid information model configuration");
     }
     @Transactional public int enqueue(){
         if(!enabled)throw new ResponseStatusException(CONFLICT,"Information AI pipeline disabled");
         guard();int count=0;
-        for(long item:db.queryForList("SELECT i.id FROM information_items i JOIN information_sources s ON s.code=i.source_code WHERE s.enabled=TRUE AND i.review_status='PENDING_REVIEW' AND i.published_at<=? ORDER BY i.id",Long.class,ts(clock.instant()))) {
+        for(long item:db.queryForList("SELECT i.id FROM information_items i JOIN information_sources s ON s.code=i.source_code WHERE s.enabled=TRUE AND i.review_status='PENDING_REVIEW' AND i.published_at<=? AND i.published_at>=? AND NOT EXISTS (SELECT 1 FROM information_ai_jobs prior WHERE prior.item_id=i.id AND prior.model=? AND prior.prompt_version=?) ORDER BY i.id LIMIT 200",Long.class,ts(clock.instant()),ts(clock.instant().minusSeconds(lookbackDays*86400L)),model,prompt)) {
             if(db.queryForObject("SELECT COUNT(*) FROM information_ai_jobs WHERE item_id=? AND model=? AND prompt_version=?",Integer.class,item,model,prompt)==0){
                 db.update("INSERT INTO information_ai_jobs(item_id,model,prompt_version,next_attempt_at,created_time,updated_time) VALUES (?,?,?,?,?,?)",item,model,prompt,ts(clock.instant()),ts(clock.instant()),ts(clock.instant()));count++;
             }
@@ -62,6 +64,10 @@ public class InformationWorkService {
         db.update("UPDATE information_ai_jobs SET content_id=?,updated_time=? WHERE id=?",id,ts(clock.instant()),jobId);return id;
     }
     @Transactional public void fail(long id,String token,Failure f){var job=locked(id,token);if(f==null||f.code()==null||!f.code().matches("[A-Z0-9_]{1,80}"))bad("Invalid error code");boolean retry=f.retryable()&&((Number)job.get("attempts")).intValue()<3;
+        if(f.retryable()&&f.code().equals("DAILY_BUDGET_EXHAUSTED")){
+            Instant tomorrow=clock.instant().atZone(ZoneOffset.UTC).toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().plusSeconds(60);
+            db.update("UPDATE information_ai_jobs SET status='PENDING',attempts=attempts-1,error_code=?,next_attempt_at=?,lease_token=NULL,lease_until=NULL,updated_time=? WHERE id=?",f.code(),ts(tomorrow),ts(clock.instant()),id);return;
+        }
         db.update("UPDATE information_ai_jobs SET status=?,error_code=?,next_attempt_at=?,lease_token=NULL,lease_until=NULL,updated_time=? WHERE id=?",retry?"PENDING":"FAILED",f.code(),ts(clock.instant().plusSeconds(3600)),ts(clock.instant()),id);}
     public List<Map<String,Object>> jobs(){return db.queryForList("SELECT id,item_id,model,prompt_version,status,attempts,error_code,created_time,updated_time FROM information_ai_jobs ORDER BY id DESC LIMIT 200");}
     public List<Map<String,Object>> contents(long item){return db.queryForList("SELECT * FROM information_contents WHERE item_id=? ORDER BY id DESC",item);}

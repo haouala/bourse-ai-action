@@ -23,6 +23,11 @@ class ContentTests(unittest.TestCase):
         fetcher = Mock(); fetcher.get.side_effect = FetchError("HTTP_403")
         self.assertEqual(acquire(self.item(), fetcher)["error"], "HTTP_403")
 
+    def test_official_publisher_article_region(self):
+        text="A financial press release with a dated announcement and supporting evidence. "*4
+        body,scope=extract_html(("<div id='article'><p>"+text+"</p></div><footer>Other pages</footer>").encode())
+        self.assertEqual(scope,"ARTICLE_EXTRACT");self.assertNotIn("Other pages",body)
+
     def test_vtt_preserves_speaker_and_times(self):
         body, scope, segments = transcript(b"WEBVTT\n\n00:01.000 --> 00:04.500\n<v Alice>Original words.</v>\n", "text/vtt")
         self.assertEqual(body, "Original words."); self.assertEqual(segments[0]["speaker"], "Alice"); self.assertEqual(segments[0]["startSeconds"], 1); self.assertEqual(segments[0]["endSeconds"], 4.5)
@@ -48,6 +53,11 @@ class ContentTests(unittest.TestCase):
         body,scope=extract_html(html,True,"Old episode")
         self.assertIn("second episode",body);self.assertNotIn("first episode",body)
         with self.assertRaises(FetchError):extract_html(html,True,"Missing episode")
+
+    def test_unavailable_or_oversized_audio_falls_back_without_transcription_charge(self):
+        fetcher=Mock();fetcher.get.side_effect=FetchError("CONTENT_TOO_LARGE")
+        ai=Mock();result=acquire(self.item(content_kind="PODCAST",audio_url="https://publisher.test/a.mp3"),fetcher,ai)
+        self.assertEqual(result["scope"],"SUMMARY_ONLY");self.assertEqual(result["error"],"CONTENT_TOO_LARGE");ai.assert_not_called()
 
     def test_private_ip_and_non_https_and_unapproved_hosts_are_rejected(self):
         resolve = lambda *a, **kw: [(None, None, None, None, ("127.0.0.1", 443))]

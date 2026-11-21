@@ -94,6 +94,11 @@ def extract_html(data, podcast=False, expected_title=None):
         candidates = [clean(n.text()) for n in nodes if n.tag == tag]
         if candidates and len(max(candidates, key=len)) >= 120:
             return max(candidates, key=len), "ARTICLE_EXTRACT"
+    for node in nodes:
+        if node.attrs.get("id", "").lower() in {"article", "article-body", "articlecontent", "main-content", "content-body"}:
+            text = clean(node.text())
+            if len(text) >= 120:
+                return text, "ARTICLE_EXTRACT"
     for n in nodes:
         if n.tag == "script" and n.attrs.get("type") == "application/ld+json":
             try:
@@ -178,7 +183,11 @@ def acquire(item, fetcher, transcriber=None):
     except FetchError as e:
         errors.append(e.code)
     if podcast and item.get("audio_url") and transcriber:
-        response = fetcher.get(item["audio_url"], max_bytes=25_000_000)
+        try:
+            response = fetcher.get(item["audio_url"], max_bytes=25_000_000)
+        except FetchError as error:
+            fallback["error"] = error.code
+            return fallback
         body = transcriber(response.body, response.content_type)
         return bounded(body, "TRANSCRIPT", item["audio_url"], "OPENAI_TRANSCRIPTION", [])
     fallback["error"] = errors[-1] if errors else "CONTENT_UNAVAILABLE"

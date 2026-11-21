@@ -24,6 +24,13 @@ class InformationWorkIntegrationTest extends DatabaseIntegrationSupport {
     @Test void retriesAreDelayedAndBoundedAndContentSurvives(){work.enqueue();for(int i=0;i<3;i++){when(clock.instant()).thenReturn(NOW.plusSeconds(3601L*i));var a=work.claim();if(i==0)work.content(id(a),(String)a.get("leaseToken"),content());else assertThat(a.get("content")).isNotNull();work.fail(id(a),(String)a.get("leaseToken"),new InformationWorkService.Failure("TEMPORARY",true));assertThat(work.claim().get("status")).isEqualTo("IDLE");}assertThat(work.jobs().getFirst().get("status")).isEqualTo("FAILED");}
     @Test void missingAndFutureDatesOrDisabledSourcesAreNotEnqueued(){db.update("UPDATE information_items SET published_at=?",Timestamp.from(NOW.plusSeconds(60)));assertThat(work.enqueue()).isZero();db.update("UPDATE information_items SET published_at=NULL,review_status='DATE_MISSING'");assertThat(work.enqueue()).isZero();}
     @Test void serviceCredentialIsRequiredAndNotExposedInJobListing(){var api=new InformationWorkerController(work,null,"x".repeat(32));assertThatThrownBy(()->api.claim(null)).isInstanceOf(ResponseStatusException.class);assertThatThrownBy(()->new InformationWorkerController(work,null,"").claim("Bearer x")).isInstanceOf(ResponseStatusException.class);api.enqueue("Bearer "+"x".repeat(32));api.claim("Bearer "+"x".repeat(32));assertThat(work.jobs().getFirst()).doesNotContainKeys("lease_token","lease_until");}
+    @Test void dailyBudgetDeferralDoesNotExhaustProviderRetryAttempts(){
+        work.enqueue();var job=work.claim();work.fail(id(job),(String)job.get("leaseToken"),new InformationWorkService.Failure("DAILY_BUDGET_EXHAUSTED",true));assertThat(work.jobs().getFirst().get("status")).isEqualTo("PENDING");assertThat(work.jobs().getFirst().get("attempts")).isEqualTo(0);
+        assertThat(work.claim().get("status")).isEqualTo("IDLE");when(clock.instant()).thenReturn(NOW.plusSeconds(86400));assertThat(work.claim().get("status")).isEqualTo("RUNNING");
+    }
+    @Test void firstActivationDoesNotAnalyzeYearsOfOldPodcastEpisodes(){
+        db.update("UPDATE information_items SET published_at=?",java.sql.Timestamp.from(NOW.minusSeconds(14*86400L)));assertThat(work.enqueue()).isZero();
+    }
     static long id(Map<String,Object> job){return ((Number)job.get("jobId")).longValue();}
     static InformationWorkService.Content content(){return new InformationWorkService.Content("Demo\nOriginal summary","SUMMARY_ONLY","https://example.org/a","RSS_SUMMARY","HTTP_403",List.of());}
 }
