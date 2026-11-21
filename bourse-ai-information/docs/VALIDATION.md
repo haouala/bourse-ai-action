@@ -1,6 +1,6 @@
 # Validation du 21 novembre 2026
 
-Les tests locaux sont réussis. Les deux workflows GitHub Actions « Information worker and backend validation » et « Python ML batch validation » ont aussi réussi sur le commit `2a1dd9a62fea1af9f291cfb0ab9a4506df2fcc96`, avant ajout des présents guides et rapports.
+Les résultats locaux ci-dessous correspondent aux suites de cette livraison. Les workflows GitHub Actions « Information worker and backend validation » et « Python ML batch validation » reproduisent ces contrôles ; consulter la PR 4 pour leur statut sur le dernier commit.
 
 | Vérification locale | Résultat |
 |---|---|
@@ -14,7 +14,7 @@ Les tests locaux sont réussis. Les deux workflows GitHub Actions « Information
 
 Les parcours HTTP utilisent de vrais processus Java et Python, mais des publications et réponses IA synthétiques. Deux publications d'un même événement produisent deux contenus (extrait et transcription), une contribution approuvée et un seul appel IA simulé grâce au cache. Les contrôles couvrent aussi les citations invalides, symboles inconnus, refus IA, budgets, reprises de tâches, baux expirés, accès non authentifiés, approbation/retrait, corrections d'articles, contradictions et séparation du mode ML cours seuls. Les bases de validation sont jetables ; la base de l'utilisateur n'est pas modifiée.
 
-Les métriques locales sont conservées dans [validation.json](validation.json). La CI reproduit les suites et parcours avec ses propres bases temporaires et publie les rapports comme artefacts GitHub.
+Les métriques locales sont conservées dans [validation.json](validation.json). Un test de contradiction a également reproduit puis validé la correction du cas où deux interprétations opposées portent sur un contenu strictement identique : la déduplication ne masque plus le conflit. La CI utilise ses propres bases temporaires et publie les rapports comme artefacts GitHub.
 
 ## Vérifications des sources publiques
 

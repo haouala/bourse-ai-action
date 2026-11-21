@@ -66,7 +66,8 @@ public class InformationAnalysisService {
         long halfLife=switch(horizon){case "DAY"->86400;case "MONTH"->2592000;default->31536000;};
         for(var row:rows)if("APPROVED".equals(row.get("review_status"))&&row.get("proposed_score")!=null&&Objects.equals(latestApproved.get(((Number)row.get("item_id")).longValue()),((Number)row.get("analysis_id")).longValue())){
             // Same content under different model/prompt versions must not be added twice.
-            String version=row.get("event_group")+"|"+row.get("content_hash");if(!evidenceVersions.add(version))continue;
+            // Preserve opposite interpretations even when the underlying content is identical.
+            String version=row.get("event_group")+"|"+row.get("content_hash")+"|"+row.get("direction");if(!evidenceVersions.add(version))continue;
             double age=Math.max(0,Duration.between(SqlIds.instant(row.get("published_at")),clock.instant()).toSeconds());
             BigDecimal score=((BigDecimal)row.get("proposed_score")).multiply(BigDecimal.valueOf(Math.pow(.5,age/halfLife)));
             // For repeated coverage of one event use the strongest magnitude, not a sum.

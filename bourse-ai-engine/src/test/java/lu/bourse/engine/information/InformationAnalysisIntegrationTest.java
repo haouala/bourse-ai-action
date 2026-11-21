@@ -45,7 +45,8 @@ class InformationAnalysisIntegrationTest extends DatabaseIntegrationSupport {
     }
     @Test void conflictingIndependentReportsDoNotProduceAnArbitraryDirection()throws Exception{
         var first=claim();long a=analyses.complete(id(first),(String)first.get("leaseToken"),result(first,"NEGATIVE"));analyses.review(a,new InformationAnalysisService.Review(true,"Same event checked",Map.of("demo-denial","shared-event")));
-        item("two","FED_PRESS");work.enqueue();var second=work.claim();work.content(id(second),(String)second.get("leaseToken"),new InformationWorkService.Content(TEXT,"ARTICLE_EXTRACT","https://example.org/b","PUBLISHER_HTML",null,List.of()));long b=analyses.complete(id(second),(String)second.get("leaseToken"),result(second,"POSITIVE"));analyses.review(b,new InformationAnalysisService.Review(true,"Conflicting report retained",Map.of("demo-denial","shared-event")));
+        item("two","FED_PRESS");var second=claim();long b=analyses.complete(id(second),(String)second.get("leaseToken"),result(second,"POSITIVE"));analyses.review(b,new InformationAnalysisService.Review(true,"Conflicting interpretation retained",Map.of("demo-denial","shared-event")));
+        assertThat(db.queryForObject("SELECT count(DISTINCT content_hash) FROM information_contents",Integer.class)).isEqualTo(1);
         var value=analyses.asset("AI_DEMO","DAY");assertThat(value.get("approvedEventCount")).isEqualTo(0);assertThat(value.get("conflictingEventCount")).isEqualTo(1);
     }
     @Test void approvalCanBeWithdrawnWithoutErasingItsHistory()throws Exception{

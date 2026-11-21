@@ -65,15 +65,10 @@
     "No financial performance validation or broker order",
     "Long audio files over 25 MB require a publisher transcript or remain summary-only"
   ],
-  "ci": {
-    "validatedCodeCommit": "2a1dd9a62fea1af9f291cfb0ab9a4506df2fcc96",
-    "informationWorkflow": {
-      "runId": 44903168991,
-      "conclusion": "success"
-    },
-    "mlWorkflow": {
-      "runId": 44903169029,
-      "conclusion": "success"
+  "regressions": {
+    "identicalContentOppositeInterpretations": {
+      "reproducedBeforeFix": true,
+      "expectedBehavior": "No directional score; one conflicting event"
     }
   }
 }
