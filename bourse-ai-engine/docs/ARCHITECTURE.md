@@ -1,3 +1,7 @@
+# Complément informations et IA du 21 novembre 2026
+
+La collecte des sources est désormais horaire et le catalogue comprend 12 flux d'actualités et deux podcasts. Les migrations V9 à V11 ajoutent la file persistante, les contenus immuables, les propositions IA, leurs impacts et l'historique des revues. Le [guide du worker](../../bourse-ai-information/README.md) décrit les réglages et les limites actuels. Les paragraphes V8 ci-dessous restent une référence historique ; leur mention « classification à développer » est remplacée pour la proposition IA par ce nouveau module, avec validation opérateur avant contribution.
+
 # Lot 3 — Suivi des marchés, portefeuille et alertes
 
 État du développement au 20 novembre 2026. Cette documentation technique accompagne le code de la branche `feature/portfolio-timeframes-alerts`. Le document d’analyse version 1.2 accompagne cette livraison.

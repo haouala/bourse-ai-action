@@ -7,6 +7,24 @@ from bourse_ai_ml.domain import DatasetSpec, FEATURES, DataError, utc, validate,
 from bourse_ai_ml.training import FOLDS, partition, fit_fold, predict_json, metrics, train
 
 
+def test_feature_configuration_changes_run_identity_but_not_dataset():
+    from bourse_ai_ml.training import training_config
+    from bourse_ai_ml.domain import digest
+    assert digest(training_config("PRICE_ONLY")) != digest(training_config("ENRICHED"))
+    with pytest.raises(DataError): training_config("UNKNOWN")
+
+
+def test_price_only_model_ignores_absent_news_and_fundamentals(rows):
+    missing = [replace(r,features=(r.features[0],None,None,r.features[3],r.features[4])) for r in rows]
+    a = fit_fold(rows,FOLDS[0],"PRICE_ONLY")
+    b = fit_fold(missing,FOLDS[0],"PRICE_ONLY")
+    assert a == b
+    assert a['model']['features'] == ['technical','market_momentum','volatility']
+    assert len(a['model']['coefficients']) == 3
+    assert np.allclose(predict_json(b['model'],missing[:20]),predict_json(b['model'],rows[:20]))
+    with pytest.raises(DataError): fit_fold(missing,FOLDS[0],"ENRICHED")
+
+
 @pytest.fixture(scope="module")
 def rows():
     return generate(DatasetSpec(assets=2))

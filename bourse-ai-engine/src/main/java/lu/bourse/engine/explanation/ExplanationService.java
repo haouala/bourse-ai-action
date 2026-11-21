@@ -34,7 +34,8 @@ public class ExplanationService {
         boolean rulesetChanged,List<String> limitations){}
     private final JdbcTemplate db;private final Clock clock;private final ObjectMapper json;private final org.springframework.transaction.support.TransactionTemplate bootstrap;
     private final MarketCalendarService calendars;private final SeasonalityService seasonality;private final SocialSignalService social;
-    public ExplanationService(JdbcTemplate db,Clock clock,ObjectMapper json,MarketCalendarService calendars,SeasonalityService seasonality,SocialSignalService social,org.springframework.transaction.PlatformTransactionManager manager){this.db=db;this.clock=clock;this.json=json;this.calendars=calendars;this.seasonality=seasonality;this.social=social;this.bootstrap=new org.springframework.transaction.support.TransactionTemplate(manager);}
+    private final lu.bourse.engine.information.InformationAnalysisService informationAnalyses;
+    public ExplanationService(JdbcTemplate db,Clock clock,ObjectMapper json,MarketCalendarService calendars,SeasonalityService seasonality,SocialSignalService social,org.springframework.transaction.PlatformTransactionManager manager,lu.bourse.engine.information.InformationAnalysisService informationAnalyses){this.db=db;this.clock=clock;this.json=json;this.calendars=calendars;this.seasonality=seasonality;this.social=social;this.bootstrap=new org.springframework.transaction.support.TransactionTemplate(manager);this.informationAnalyses=informationAnalyses;}
     @PostConstruct void seed(){bootstrap.executeWithoutResult(status->{db.queryForObject("SELECT id FROM explanation_guard WHERE id=1 FOR UPDATE",Integer.class);seedUnlocked();});}
     private void seedUnlocked(){
         for(Horizon h:Horizon.values())if(db.queryForObject("SELECT COUNT(*) FROM explanation_rulesets WHERE name=?",Integer.class,"DEFAULT_"+h+"_V1")==0){
@@ -57,7 +58,7 @@ public class ExplanationService {
         Rules config=read((String)stored.getFirst().get("configuration_json"),Rules.class);validate(config);
         var factors=new ArrayList<Factor>();technical(asset,switch(horizon){case DAY->"15m";case MONTH->"1h";case YEAR->"1d";},config,now,factors);
         boolean crypto="CRYPTO".equals(db.queryForObject("SELECT asset_type FROM assets WHERE id=?",String.class,asset));
-        fundamental(asset,config,now,crypto,factors);information(asset,config,factors);
+        fundamental(asset,config,now,crypto,factors);information(asset,config,horizon,factors);
         factors.add(new Factor("SEASONALITY","SEASONALITY",BigDecimal.ZERO,"EXPLORATORY_ONLY","Statistiques mensuelles, trimestrielles et annuelles ; contribution nulle avant validation indépendante.",seasonality.analyze(symbol,now)));
         var quality=quoteQuality(asset,now);int expected=(config.technicalMax()>0?2:0)+(!crypto&&config.fundamentalMax()>0?1:0)+(config.informationMax()>0?1:0);
         int available=(int)factors.stream().filter(f->f.category().equals("TECHNICAL")&&f.status().equals("AVAILABLE")).count();
@@ -72,7 +73,7 @@ public class ExplanationService {
             var old=previous.getFirst();previousId=((Number)old.get("id")).longValue();previousScore=(BigDecimal)old.get("score");changedRules=((Number)old.get("ruleset_id")).longValue()!=rulesId;
             changes.putAll(differences(previousId,factors));if(score!=null&&previousScore!=null)change=round(score.subtract(previousScore));
         }
-        var limits=List.of("Score heuristique expérimental ; aucune probabilité de gain ni ordre automatique","CoverageScore mesure les composantes disponibles, pas une confiance de prédiction","Les explications attribuent les points du modèle ; elles ne prouvent pas la cause d'un mouvement du cours","Cours ajustés, qualité des imports, frais et tests indépendants restent à vérifier","Classification des événements et attribution des paroles validées manuellement ; aucun LLM connecté");
+        var limits=List.of("Score heuristique expérimental ; aucune probabilité de gain ni ordre automatique","CoverageScore mesure les composantes disponibles, pas une confiance de prédiction","Les explications attribuent les points du modèle ; elles ne prouvent pas la cause d'un mouvement du cours","Cours ajustés, qualité des imports, frais et tests indépendants restent à vérifier","Événements sociaux et attributions validés manuellement ; propositions IA soumises à une approbation traçable avant contribution");
         long id=SqlIds.insert(db,"INSERT INTO explanation_snapshots(asset_id,ruleset_id,horizon,as_of,computed_at,score,coverage_score,status,result_json) VALUES (?,?,?,?,?,?,?,?,?)",asset,rulesId,horizon.name(),ts(now),ts(now),score,coverage,status,"{}");
         var result=new Analysis(id,symbol.toUpperCase(Locale.ROOT),horizon,rulesId,METHOD,now,score,coverage,status,quality,List.copyOf(factors),previousId,previousScore,change,changes,changedRules,limits);
         db.update("UPDATE explanation_snapshots SET result_json=? WHERE id=?",write(result),id);
@@ -114,11 +115,20 @@ public class ExplanationService {
         boolean stale=end.plusMonths(18).isBefore(now.atZone(ZoneOffset.UTC).toLocalDate());
         factors.add(new Factor("NET_MARGIN_CHANGE","FUNDAMENTAL",stale?BigDecimal.ZERO:BigDecimal.valueOf((long)sign*rules.fundamentalMax()),stale?"STALE":"AVAILABLE","Marge nette = résultat net / chiffre d'affaires × 100. Variation annuelle : "+change+" points ; seuil de contribution : "+rules.marginChangeThreshold()+" points.",Map.of("latest",latest,"prior",prior,"changePercentagePoints",change,"availabilityPolicy","FILED_DATE_PLUS_ONE_DAY")));
     }
-    private void information(long asset,Rules rules,List<Factor> factors){
+    private void information(long asset,Rules rules,Horizon horizon,List<Factor> factors){
         if(rules.informationMax()==0){factors.add(new Factor("INFO_DISABLED","INFORMATION",BigDecimal.ZERO,"DISABLED","Composante informationnelle désactivée.",Map.of()));return;}
         var events=db.queryForList("SELECT event_id FROM social_asset_assessments WHERE asset_id=? ORDER BY event_id",Long.class,asset);
         BigDecimal max=BigDecimal.valueOf(rules.informationMax());
-        if(events.isEmpty()){factors.add(missing("INFO_NONE","INFORMATION","Aucun événement classifié pour cet actif. Les titres non analysés ne deviennent pas un signal neutre."));return;}
+        String symbol=db.queryForObject("SELECT symbol FROM assets WHERE id=?",String.class,asset);
+        var ai=informationAnalyses.asset(symbol,horizon.name());
+        boolean aiEvidence=!((List<?>)ai.get("proposedEvidence")).isEmpty();
+        if(events.isEmpty()){
+            if(aiEvidence){boolean available=((Number)ai.get("approvedEventCount")).intValue()>0;boolean conflict=((Number)ai.get("conflictingEventCount")).intValue()>0;
+                BigDecimal points=available?max.multiply((BigDecimal)ai.get("approvedScore")).divide(new BigDecimal("100"),4,RoundingMode.HALF_UP):BigDecimal.ZERO;
+                factors.add(new Factor("AI_INFORMATION","INFORMATION",points,available&&!conflict?"AVAILABLE":"UNRESOLVED","Propositions IA et résumés consultables avec leurs citations. Seules les interprétations approuvées contribuent ; un événement répété ne multiplie pas ses points. L'attention médiatique reste descriptive.",ai));
+            }else factors.add(missing("INFO_NONE","INFORMATION","Aucun événement classifié pour cet actif. Les titres non analysés ne deviennent pas un signal neutre."));return;
+        }
+        if(aiEvidence)factors.add(new Factor("AI_INFORMATION_SEPARATE","INFORMATION",BigDecimal.ZERO,"SEPARATE_REVIEW","Des événements sociaux existent déjà. Les propositions IA restent séparées pour éviter un double comptage entre les deux chaînes.",ai));
         var rawFactors=new ArrayList<Factor>();BigDecimal total=BigDecimal.ZERO;
         for(long event:events){
             var score=db.queryForMap("SELECT s.*,a.horizon FROM social_impact_scores s JOIN social_asset_assessments a ON a.id=s.assessment_id WHERE a.event_id=? AND a.asset_id=? ORDER BY s.id DESC LIMIT 1",event,asset);

@@ -1,3 +1,5 @@
+> État courant V11 du 21 novembre 2026 : **48 tables métier et 410 colonnes**, hors Flyway. L’extension informations V9 à V11 et ses colonnes sont décrites en fin de document ; les sections V8 conservent le détail du socle antérieur.
+
 # Base de données Bourse AI
 
 Schéma réel après application de Flyway V1 à V8 sur PostgreSQL 17.7, le 20 novembre 2026. Les 42 tables et 357 colonnes ci-dessous sont extraites de cette base de test ; leur rôle correspond au code livré. Le document d’analyse version 1.2 accompagne cette livraison.
@@ -837,3 +839,21 @@ Unicité (snapshot_id, factor_key). La somme des différences de contributions c
 ## Entretien du schéma
 
 Utiliser une nouvelle migration pour chaque évolution. Les tests ont vérifié V1 à V8 depuis une base vide et V7 vers V8 avec données existantes, sur H2 et PostgreSQL 17.7. Ils ne modifient pas la base du PC. Le schéma de cette livraison contient 42 tables et 357 colonnes, hors historique Flyway.
+
+
+## Extension informations V9 à V11
+
+Le schéma contrôlé après migrations compte **48 tables métier et 410 colonnes**, hors historique Flyway, dans la validation PostgreSQL du 21 novembre 2026. Le schéma Python ML `bourse_ml` est séparé.
+
+| Table | Clés et colonnes | Rôle |
+|---|---|---|
+| `information_worker_guard` | `id` PK | Sérialise brièvement l'ajout et la réservation des tâches |
+| `information_contents` | `id` PK ; `item_id` FK ; `content_hash`, `body_text`, `scope`, `content_url`, `extraction_method`, `fetch_error`, `segments_json`, `fetched_at` | Contenu conservé avant analyse ; unicité item et empreinte ; résumé seul, extrait ou transcription explicités |
+| `information_ai_jobs` | `id` PK ; `item_id` FK ; `model`, `prompt_version`, `status`, `attempts`, `lease_token`, `lease_until`, `next_attempt_at`, `content_id` FK, `error_code`, `created_time`, `updated_time` | Tâche unique par item, modèle et consigne ; bail renouvelable et reprises bornées |
+| `information_ai_analyses` | `id` PK ; `job_id` FK unique ; `content_id` FK ; `result_json`, `analyzed_characters`, `review_status`, `review_reason`, `reviewed_at`, `created_time` | Proposition immuable et état courant de revue ; résumé, événements et preuves dans le JSON |
+| `information_ai_impacts` | `id` PK ; `analysis_id`, `asset_id` FK ; `event_key`, `event_group`, `horizon`, `direction`, `proposed_score`, `explanation`, `exact_quote` | Impact proposé par événement, actif et horizon ; score null si sens mixte ou inconnu |
+| `information_ai_reviews` | `id` PK ; `analysis_id` FK ; `decision`, `reason`, `event_groups_json`, `reviewed_at` | Journal conservé lors d'une approbation ou d'un retrait |
+
+`information_sources` reçoit `content_kind` (ARTICLE ou PODCAST) et `publisher_group` (regroupement d'éditeur, pas une preuve de corroboration). `information_items` reçoit `audio_url` et `transcript_url`. Son `summary` reste le résumé original du flux. Les contenus et propositions conservent leurs dates de création ; seules la tâche et la projection de l'état de revue changent. Les snapshots d'explication déjà enregistrés ne sont pas réécrits.
+
+Les dates de publication, collecte, récupération, calcul et revue restent distinctes. Un futur jeu d'apprentissage devra utiliser la disponibilité effective des composantes, jamais seulement la date ancienne d'un article analysé aujourd'hui. Les révisions d'un même item restent consultables, mais une ancienne révision approuvée ne continue pas à contribuer au score courant après réception d'une correction.

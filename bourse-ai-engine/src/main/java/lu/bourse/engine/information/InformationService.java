@@ -24,14 +24,14 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service
 public class InformationService {
-    public record Source(String code,String name,String feedUrl,String evidenceUrl,String region,String language){}
+    public record Source(String code,String name,String feedUrl,String evidenceUrl,String region,String language,String contentKind,String publisherGroup){}
     private final JdbcTemplate db;private final Clock clock;private final ObjectMapper json;private final SocialSignalService social;
     private final TransactionTemplate tx;private final HttpClient http;private final Resource catalog;private final boolean scheduler;
     private final String testBase;private final int minimumInterval;private final FeedParser parser=new FeedParser();
     public InformationService(JdbcTemplate db,Clock clock,ObjectMapper json,SocialSignalService social,PlatformTransactionManager manager,
         @Value("${information.catalog:classpath:information-sources.json}") Resource catalog,
         @Value("${information.scheduler.enabled:false}") boolean scheduler,
-        @Value("${information.minimum-interval-seconds:900}") int minimumInterval,
+        @Value("${information.minimum-interval-seconds:3600}") int minimumInterval,
         @Value("${information.test-base-url:}") String testBase){
         this.db=db;this.clock=clock;this.json=json;this.social=social;this.catalog=catalog;this.scheduler=scheduler;this.minimumInterval=Math.max(60,minimumInterval);this.testBase=testBase;
         if(!testBase.isBlank()&&!testBase.matches("http://127\\.0\\.0\\.1:[0-9]+"))throw new IllegalArgumentException("Test base must be loopback HTTP");
@@ -43,12 +43,12 @@ public class InformationService {
             Source[] sources=json.readValue(in,Source[].class);
             for(Source s:sources){
                 if(s.code()==null||!s.code().matches("[A-Z0-9_]{2,60}")||s.name()==null||s.name().length()>160||s.region()==null||s.region().length()>30||s.language()==null||s.language().length()>12||!safeConfiguredUrl(s.feedUrl())||!safeConfiguredUrl(s.evidenceUrl()))throw new IllegalArgumentException("Invalid source catalog entry");
-                if(db.queryForObject("SELECT COUNT(*) FROM information_sources WHERE code=?",Integer.class,s.code())==0)db.update("INSERT INTO information_sources(code,name,feed_url,evidence_url,region,language_code) VALUES (?,?,?,?,?,?)",s.code(),s.name(),s.feedUrl(),s.evidenceUrl(),s.region(),s.language());
+                if(db.queryForObject("SELECT COUNT(*) FROM information_sources WHERE code=?",Integer.class,s.code())==0)db.update("INSERT INTO information_sources(code,name,feed_url,evidence_url,region,language_code,content_kind,publisher_group) VALUES (?,?,?,?,?,?,?,?)",s.code(),s.name(),s.feedUrl(),s.evidenceUrl(),s.region(),s.language(),s.contentKind()==null?"ARTICLE":s.contentKind(),s.publisherGroup()==null?(s.code().startsWith("FED_")?"FED":s.code().startsWith("BOE_")?"BOE":s.code()):s.publisherGroup());
                 // Never silently replace a configured feed or publisher identity; explicit catalog migrations are reviewable.
             }
         }catch(Exception e){throw new IllegalStateException("Cannot load information source catalog",e);}
     }
-    public List<Map<String,Object>> sources(){return db.queryForList("SELECT code,name,feed_url,evidence_url,region,language_code,enabled,last_success_at,last_error,next_attempt_at FROM information_sources ORDER BY code");}
+    public List<Map<String,Object>> sources(){return db.queryForList("SELECT code,name,feed_url,evidence_url,region,language_code,content_kind,publisher_group,enabled,last_success_at,last_error,next_attempt_at FROM information_sources ORDER BY code");}
     public void enable(String code,boolean value){if(db.update("UPDATE information_sources SET enabled=?,updated_time=CURRENT_TIMESTAMP WHERE code=?",value,code)==0)throw new ResponseStatusException(NOT_FOUND,"Unknown source");}
     public Map<String,Object> sync(String code){
         Instant now=clock.instant();String token=UUID.randomUUID().toString();
@@ -86,11 +86,12 @@ public class InformationService {
         }
         int inserted=0;Instant collected=clock.instant();
         for(var item:items){
-            String key=SeasonalityService.hash(item.key()),hash=SeasonalityService.hash(item.title()+"\n"+item.summary()+"\n"+item.publishedAt()+"\n"+item.url()+"\n"+item.author());
+            String key=SeasonalityService.hash(item.key()),hash=SeasonalityService.hash(item.title()+"\n"+item.summary()+"\n"+item.publishedAt()+"\n"+item.url()+"\n"+item.author()+(item.audioUrl()==null&&item.transcriptUrl()==null?"":"\n"+item.audioUrl()+"\n"+item.transcriptUrl()));
             if(db.queryForObject("SELECT COUNT(*) FROM information_items WHERE source_code=? AND external_key=? AND content_hash=?",Integer.class,code,key,hash)>0)continue;
             String review=item.publishedAt()==null?"DATE_MISSING":item.publishedAt().isAfter(collected)?"FUTURE_DATE":"PENDING_REVIEW";Long publication=null;
             if(review.equals("PENDING_REVIEW"))publication=social.publication(new SocialSignalService.Publication(publisher,key+"-"+hash.substring(0,12),item.title()+"\n"+item.summary(),item.url(),item.publishedAt()));
             long id=SqlIds.insert(db,"INSERT INTO information_items(source_code,external_key,content_hash,title,summary,original_url,author_text,published_at,collected_at,publication_id,review_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)",code,key,hash,item.title(),item.summary(),item.url(),item.author(),ts(item.publishedAt()),ts(collected),publication,review);inserted++;
+            db.update("UPDATE information_items SET audio_url=?,transcript_url=? WHERE id=?",item.audioUrl(),item.transcriptUrl(),id);
             for(var actor:db.queryForList("SELECT id,display_name FROM social_actors WHERE role_label NOT LIKE 'Institutional publisher%'")){
                 String name=(String)actor.get("display_name");
                 if(Pattern.compile("(?<![\\p{L}\\p{N}])"+Pattern.quote(name)+"(?![\\p{L}\\p{N}])",Pattern.CASE_INSENSITIVE|Pattern.UNICODE_CASE).matcher(item.title()+" "+item.summary()).find())db.update("INSERT INTO information_mentions(item_id,actor_id,matched_name) VALUES (?,?,?)",id,actor.get("id"),name);

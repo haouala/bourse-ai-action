@@ -11,11 +11,12 @@ import java.net.URI;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /** RSS/Atom summaries only. XML entities, DTDs and external fetches are forbidden. */
 public final class FeedParser {
     public static final int MAX_BYTES=2_000_000;
-    public record Item(String key,String title,String summary,String url,String author,Instant publishedAt){}
+    public record Item(String key,String title,String summary,String url,String author,Instant publishedAt,String audioUrl,String transcriptUrl){}
     public List<Item> parse(byte[] bytes){
         if(bytes.length>MAX_BYTES)throw new IllegalArgumentException("FEED_TOO_LARGE");
         try{
@@ -41,7 +42,15 @@ public final class FeedParser {
                 String author=clean(first(child(e,"creator"),child(e,"author")),300);
                 // An update timestamp does not establish the original publication date.
                 String time=first(child(e,"pubDate"),child(e,"published"),child(e,"date"));
-                items.add(new Item(key,title,summary,link,author.isBlank()?null:author,date(time)));
+                String audio=null,transcript=null;
+                for(Element x:children(e,"enclosure"))if(x.getAttribute("type").startsWith("audio/")&&https(x.getAttribute("url"))){audio=x.getAttribute("url");break;}
+                for(Element x:children(e,"transcript"))if("https://podcastindex.org/namespace/1.0".equals(x.getNamespaceURI())&&https(x.getAttribute("url"))){transcript=x.getAttribute("url");break;}
+                if(transcript==null&&audio!=null){
+                    String raw=first(child(e,"description"),child(e,"summary"),child(e,"encoded"));
+                    int start=raw.toLowerCase(Locale.ROOT).indexOf("full transcript");
+                    if(start>=0){var match=Pattern.compile("https://[^\\s\"'<>\\\\]+").matcher(HtmlUtils.htmlUnescape(raw.substring(start)));if(match.find()&&https(match.group()))transcript=match.group();}
+                }
+                items.add(new Item(key,title,summary,link,author.isBlank()?null:author,date(time),audio,transcript));
             }
             return List.copyOf(items);
         }catch(IllegalArgumentException e){throw e;}catch(Exception e){throw new IllegalArgumentException("INVALID_OR_UNSAFE_XML");}

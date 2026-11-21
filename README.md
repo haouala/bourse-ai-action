@@ -1,3 +1,11 @@
+# Informations et podcasts avec IA
+
+Le module [bourse-ai-information](bourse-ai-information/README.md) ajoute la collecte horaire, l'extraction d'articles, les transcriptions de podcasts et un worker OpenAI séparé. Java conserve la file et les résultats dans PostgreSQL ; le worker utilise son API interne authentifiée. Les résumés originaux sont conservés et l'IA ajoute un résumé explicatif avec preuves. Les appels payants sont désactivés par défaut.
+
+Les propositions restent à approuver avant contribution au score expérimental. L'attention médiatique est distincte du sens et les répétitions d'un événement ne multiplient pas ses points. Le guide contient les clés et budgets à configurer, les commandes PowerShell/Linux, les routes et les tests sans clé. Livraison par petits commits sur `feature/information-ai-hourly`, PR 4 ; aucune fusion automatique dans main.
+
+Le batch ML accepte maintenant `demo --feature-set PRICE_ONLY` pour apprendre sans composantes informationnelles ou fondamentales. Cette option reste une démonstration synthétique : elle n'importe pas encore les historiques métier réels.
+
 # Bourse AI
 
 ## Batch Python de démonstration
@@ -34,7 +42,7 @@ Branche de livraison : `feature/portfolio-timeframes-alerts`, [PR 1](https://git
 | Calendriers | Séances régulières US 2026–2028, import d'autres calendriers, fuseaux, fériés, clôtures anticipées, états inconnus et suspensions déclarées |
 | Qualité des prix | Dernière bougie attendue, marge de livraison, clôture et ouverture en estimation explicite ; horodatage FX distinct |
 | Saisonnière | Statistiques **mensuelles, trimestrielles et annuelles** sur les cours quotidiens ; pas d'analyse horaire ou par jour de semaine |
-| Informations | 12 flux publics RSS/Atom politiques, économiques et internationaux ; versions, dates, reprises, mentions et citations validées manuellement |
+| Informations | 14 flux publics RSS/Atom dont deux podcasts ; sources politiques, économiques et internationaux ; versions, dates, reprises, mentions et citations validées manuellement |
 | Personnalités | Influence par sujet et date ; impact/confidence par actif ; collecte X facultative et plafonnée |
 | Explication | Règles MACD/RSI, variation de marge nette et événements ; contributions, sources et snapshots pour DAY/MONTH/YEAR |
 | Correction des règles | Versions immuables et comparaison des points entre deux analyses ; aucune réécriture de l'historique |
@@ -43,7 +51,7 @@ Pour un premier essai sans compte fournisseur : lancer l'application, puis `pyth
 
 Les ordonnanceurs sont **désactivés par défaut**. RSS, calendriers, statistiques et explications ne nécessitent aucun token. Twelve Data et X nécessitent une clé uniquement si leurs appels sont volontairement activés ; les étapes sont dans le guide local et `.env.example`.
 
-Les scores sont expérimentaux et explicables, pas des probabilités de gain. La saisonnalité reste descriptive avec zéro point avant validation indépendante. L'interprétation des textes et la vérification de l'identité des locuteurs restent humaines ; aucun LLM n'est connecté. Les graphiques de scénarios, l'application Android, le push, les backtests financiers indépendants et la validation du fournisseur payant restent à réaliser. Les API de développement doivent rester privées jusqu'à l'ajout de l'authentification.
+Les scores sont expérimentaux et explicables, pas des probabilités de gain. La saisonnalité reste descriptive avec zéro point avant validation indépendante. Le worker OpenAI produit des propositions structurées ; l'approbation et la vérification de l'identité des locuteurs restent distinctes et traçables. Cette livraison backend ne modifie pas Android ni le push. Les backtests financiers indépendants et la validation du fournisseur payant restent à réaliser. Les API de développement doivent rester privées jusqu'à l'ajout de l'authentification.
 
 Le suivi des développements est actualisé dans le document d'analyse version 1.2 du 20 novembre 2026, livré séparément en Word et PDF.
 
