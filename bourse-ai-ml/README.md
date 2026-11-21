@@ -106,3 +106,10 @@ Voir [docs/VALIDATION.md](docs/VALIDATION.md) pour les résultats effectivement 
 ## Limites
 
 Les résultats synthétiques ne valident aucune performance boursière réelle. Les coefficients logistiques ne remplacent pas directement les amplitudes Java : aucun import ou activation n'est fourni. L'adaptateur aux historiques réels et snapshots Java, la reconstruction point-in-time, les titres radiés, les vrais calendriers et les particularités crypto restent à développer et valider. Ce module n'ajoute ni LLM, ni nouvelles collectes, ni modification Android.
+
+
+## Apprendre sans historique d'informations
+
+`python -m bourse_ai_ml demo --feature-set PRICE_ONLY --assets 8 --horizon MONTH` utilise seulement `technical`, `market_momentum`, `volatility`. Les composantes informationnelles et fondamentales ne sont ni consommées ni remplacées par des zéros. `ENRICHED` conserve le mode précédent à cinq composantes et son identité de configuration. Les deux modes partagent un jeu synthétique mais ont des identifiants de calcul et des coefficients distincts.
+
+Le noyau de calcul accepte l'absence de valeurs non utilisées en mode PRICE_ONLY. Le schéma de démonstration stocke encore ses cinq composantes générées : l'adaptateur aux données métier réelles et leur représentation de disponibilité restent à construire. La référence heuristique enrichie n'est pas présentée comme une comparaison équivalente d'un modèle cours seuls. Le modèle constant de référence reste disponible. Aucun modèle n'est activé dans Java.
