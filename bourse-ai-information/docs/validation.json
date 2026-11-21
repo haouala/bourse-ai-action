@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-21",
+  "backend": {
+    "h2": {
+      "tests": 125,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "postgresql17_7": {
+      "tests": 125,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "worker": {
+    "tests": 31,
+    "failures": 0,
+    "errors": 0
+  },
+  "ml": {
+    "tests": 45,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "smokeH2": {
+    "synthetic": true,
+    "database": "H2 file",
+    "completedJobs": 2,
+    "scopes": [
+      "ARTICLE_EXTRACT",
+      "TRANSCRIPT"
+    ],
+    "approvedEventCount": 1,
+    "publications24h": 2,
+    "restartPersistence": true,
+    "simulatedAiCalls": 1,
+    "paidAiCalls": 0,
+    "brokerOrders": 0
+  },
+  "smokePostgres": {
+    "synthetic": true,
+    "database": "PostgreSQL",
+    "completedJobs": 2,
+    "scopes": [
+      "ARTICLE_EXTRACT",
+      "TRANSCRIPT"
+    ],
+    "approvedEventCount": 1,
+    "publications24h": 2,
+    "restartPersistence": true,
+    "simulatedAiCalls": 1,
+    "paidAiCalls": 0,
+    "brokerOrders": 0
+  },
+  "schema": {
+    "businessTables": 48,
+    "businessColumns": 410
+  },
+  "limitations": [
+    "No paid OpenAI request has been made; semantic quality with the real model is unvalidated",
+    "Public-source probes use workspace egress and the extraction parser, not the production pinned TLS transport",
+    "No financial performance validation or broker order",
+    "Long audio files over 25 MB require a publisher transcript or remain summary-only"
+  ],
+  "ci": {
+    "validatedCodeCommit": "2a1dd9a62fea1af9f291cfb0ab9a4506df2fcc96",
+    "informationWorkflow": {
+      "runId": 44903168991,
+      "conclusion": "success"
+    },
+    "mlWorkflow": {
+      "runId": 44903169029,
+      "conclusion": "success"
+    }
+  }
+}
