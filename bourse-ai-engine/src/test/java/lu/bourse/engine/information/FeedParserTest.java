@@ -13,5 +13,9 @@ class FeedParserTest {
         var r=parser.parse(bytes("<rss xmlns:podcast='https://podcastindex.org/namespace/1.0'><channel><item><title>Episode</title><link>https://example.org/e</link><enclosure type='audio/mpeg' url='https://example.org/a.mp3'/><podcast:transcript url='https://example.org/t.vtt'/></item></channel></rss>"));
         assertThat(r.getFirst().audioUrl()).isEqualTo("https://example.org/a.mp3");assertThat(r.getFirst().transcriptUrl()).isEqualTo("https://example.org/t.vtt");
     }
+    @Test void publisherTranscriptLinkInPodcastDescriptionIsPreserved(){
+        String xml="<rss><channel><item><title>Episode</title><link>https://publisher.org/e</link><description><![CDATA[<p>Full transcript and related links: <a href='https://official.org/transcript'>Transcript</a></p>]]></description><enclosure type='audio/mpeg' url='https://publisher.org/e.mp3'/></item></channel></rss>";
+        var item=parser.parse(bytes(xml)).getFirst();assertThat(item.transcriptUrl()).isEqualTo("https://official.org/transcript");assertThat(item.summary()).contains("Full transcript");
+    }
     @Test void oversizedResponsesAreRejected(){assertThatThrownBy(()->parser.parse(new byte[FeedParser.MAX_BYTES+1])).isInstanceOf(IllegalArgumentException.class).hasMessage("FEED_TOO_LARGE");}
 }

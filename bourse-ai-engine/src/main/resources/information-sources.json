@@ -94,5 +94,25 @@
     "evidenceUrl": "https://www.france24.com/fr/",
     "region": "GLOBAL",
     "language": "fr"
+  },
+  {
+    "code": "RICHMOND_PODCAST",
+    "name": "Richmond Fed Speaking of the Economy",
+    "feedUrl": "https://speakingoftheeconomy.libsyn.com/rss",
+    "evidenceUrl": "https://www.richmondfed.org/podcasts/speaking_of_the_economy",
+    "region": "US",
+    "language": "en",
+    "contentKind": "PODCAST",
+    "publisherGroup": "RICHMOND_FED"
+  },
+  {
+    "code": "RBC_TAKE",
+    "name": "RBC Economics The 10-Minute Take",
+    "feedUrl": "https://feeds.captivate.fm/the-10-minute-take/",
+    "evidenceUrl": "https://www.rbc.com/en/economics/the-10-minute-take/",
+    "region": "GLOBAL",
+    "language": "en",
+    "contentKind": "PODCAST",
+    "publisherGroup": "RBC"
   }
 ]

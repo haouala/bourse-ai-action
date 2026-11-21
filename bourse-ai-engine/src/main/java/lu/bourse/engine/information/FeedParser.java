@@ -11,6 +11,7 @@ import java.net.URI;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /** RSS/Atom summaries only. XML entities, DTDs and external fetches are forbidden. */
 public final class FeedParser {
@@ -44,6 +45,11 @@ public final class FeedParser {
                 String audio=null,transcript=null;
                 for(Element x:children(e,"enclosure"))if(x.getAttribute("type").startsWith("audio/")&&https(x.getAttribute("url"))){audio=x.getAttribute("url");break;}
                 for(Element x:children(e,"transcript"))if("https://podcastindex.org/namespace/1.0".equals(x.getNamespaceURI())&&https(x.getAttribute("url"))){transcript=x.getAttribute("url");break;}
+                if(transcript==null&&audio!=null){
+                    String raw=first(child(e,"description"),child(e,"summary"),child(e,"encoded"));
+                    int start=raw.toLowerCase(Locale.ROOT).indexOf("full transcript");
+                    if(start>=0){var match=Pattern.compile("https://[^\\s\"'<>\\\\]+").matcher(HtmlUtils.htmlUnescape(raw.substring(start)));if(match.find()&&https(match.group()))transcript=match.group();}
+                }
                 items.add(new Item(key,title,summary,link,author.isBlank()?null:author,date(time),audio,transcript));
             }
             return List.copyOf(items);

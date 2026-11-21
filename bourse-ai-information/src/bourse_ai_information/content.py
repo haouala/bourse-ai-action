@@ -52,7 +52,7 @@ def clean(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def extract_html(data, podcast=False):
+def extract_html(data, podcast=False, expected_title=None):
     page = Page(data.decode("utf-8", errors="replace")); nodes = list(page.root.walk())
     # Respect explicit paywall metadata; do not turn previews into complete text.
     for node in nodes:
@@ -60,6 +60,19 @@ def extract_html(data, podcast=False):
             raw = "".join(c for c in node.children if isinstance(c, str))
             if re.search(r'"isAccessibleForFree"\s*:\s*(false|"false")', raw, re.I):
                 raise FetchError("PAYWALL_OR_PREVIEW")
+    if expected_title:
+        normalize = lambda s: re.sub(r"[^\w]+", " ", clean(s).lower()).strip()
+        wanted = normalize(expected_title)
+        matches = [i for i,n in enumerate(nodes) if n.tag in {"h1","h2","h3","h4","h5","h6"} and normalize(n.text()).endswith(wanted)]
+        if not matches: raise FetchError("EPISODE_NOT_FOUND")
+        start = matches[0]; tag = nodes[start].tag
+        end = next((i for i in range(start+1,len(nodes)) if nodes[i].tag == tag),len(nodes))
+        window = nodes[start+1:end]
+        marker = next((i for i,n in enumerate(window) if n.tag in {"h1","h2","h3","h4","p","button"} and clean(n.text()).lower() in {"transcript","full transcript"}),None)
+        if marker is None: raise FetchError("TRANSCRIPT_NOT_FOUND")
+        text = clean(" ".join(n.text() for n in window[marker+1:] if n.tag in {"p","li"} and clean(n.text()).lower() != "transcript"))
+        if len(text) < 120: raise FetchError("TRANSCRIPT_NOT_FOUND")
+        return text, "TRANSCRIPT"
     if podcast:
         regions = [n for n in nodes if "transcript" in (n.attrs.get("id", "") + " " + n.attrs.get("class", "")).lower() and len(clean(n.text())) >= 120]
         if regions:
@@ -141,11 +154,15 @@ def acquire(item, fetcher, transcriber=None):
                 return bounded(body, scope, response.url, "PUBLISHER_TRANSCRIPT", segments)
             except FetchError as e:
                 errors.append(e.code)
-        response = fetcher.get(item["original_url"])
+        # This publisher uses one RSS landing URL for many episodes. Select the
+        # matching title's transcript rather than assigning the newest to all.
+        rbc = podcast and item.get("source_code") == "RBC_TAKE"
+        page_url = "https://www.rbc.com/en/economics/the-10-minute-take/" if rbc else item["original_url"]
+        response = fetcher.get(page_url)
         if "html" not in response.content_type:
             raise FetchError("UNSUPPORTED_PAGE_TYPE")
         try:
-            body, scope = extract_html(response.body, podcast)
+            body, scope = extract_html(response.body, podcast, item["title"] if rbc else None)
             return bounded(body, scope, response.url, "PUBLISHER_HTML", [])
         except FetchError:
             if not podcast:

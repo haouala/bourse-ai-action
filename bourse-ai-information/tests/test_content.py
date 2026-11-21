@@ -41,6 +41,14 @@ class ContentTests(unittest.TestCase):
         body, scope = extract_html(("<main><h3>Transcript</h3><p>" + text + "</p><h3>Other episode</h3><p>Unrelated</p></main>").encode(), True)
         self.assertEqual(scope, "TRANSCRIPT"); self.assertNotIn("Unrelated", body)
 
+    def test_episode_selection_never_assigns_newest_transcript_to_old_episode(self):
+        a="Discussion for the first episode. "*8
+        b="Discussion for the second episode. "*8
+        html=("<main><section><h4>S1:E2 New episode</h4><h3>Transcript</h3><p>"+a+"</p></section><section><h4>S1:E1 Old episode</h4><h3>Transcript</h3><p>"+b+"</p></section></main>").encode()
+        body,scope=extract_html(html,True,"Old episode")
+        self.assertIn("second episode",body);self.assertNotIn("first episode",body)
+        with self.assertRaises(FetchError):extract_html(html,True,"Missing episode")
+
     def test_private_ip_and_non_https_and_unapproved_hosts_are_rejected(self):
         resolve = lambda *a, **kw: [(None, None, None, None, ("127.0.0.1", 443))]
         for url in ("https://publisher.test/a", "http://publisher.test/a", "https://other.test/a", "https://x:secret@publisher.test/a", "https://publisher.test:8443/a"):

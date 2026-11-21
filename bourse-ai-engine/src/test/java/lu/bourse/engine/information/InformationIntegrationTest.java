@@ -30,7 +30,7 @@ class InformationIntegrationTest extends DatabaseIntegrationSupport {
     @BeforeEach void setup(){when(clock.instant()).thenReturn(NOW);when(clock.getZone()).thenReturn(ZoneOffset.UTC);body.set(feed("Synthetic official says tariffs may change","Thu, 19 Nov 2026 14:00:00 GMT"));status.set(200);calls.set(0);conditional.set(null);}
     static String feed(String text,String date){return "<rss><channel><item><guid>one</guid><title>Policy statement</title><link>https://example.org/statement</link><description>"+text+"</description>"+(date==null?"":"<pubDate>"+date+"</pubDate>")+"</item></channel></rss>";}
     void ready(){db.update("UPDATE information_sources SET next_attempt_at=NULL WHERE code='FED_PRESS'");}
-    @Test void disabledByDefaultAndSourceCannotBeCalledBeforeExplicitEnable(){assertThatThrownBy(()->info.sync("FED_PRESS")).isInstanceOf(ResponseStatusException.class);assertThat(calls.get()).isZero();assertThat(info.sources()).hasSize(12);}
+    @Test void disabledByDefaultAndSourceCannotBeCalledBeforeExplicitEnable(){assertThatThrownBy(()->info.sync("FED_PRESS")).isInstanceOf(ResponseStatusException.class);assertThat(calls.get()).isZero();assertThat(info.sources()).hasSize(14);}
     @Test void defaultPollingIsHourlyWithoutChangingMarketIntervals(){
         info.enable("FED_PRESS",true);info.sync("FED_PRESS");
         assertThat(lu.bourse.engine.persistence.SqlIds.instant(db.queryForObject("SELECT next_attempt_at FROM information_sources WHERE code='FED_PRESS'",Object.class))).isEqualTo(NOW.plusSeconds(3600));
