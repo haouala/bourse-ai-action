@@ -6,8 +6,8 @@ from .domain import DatasetSpec, digest, SOURCE
 from .training import train, training_config
 
 
-def execute(conn, spec: DatasetSpec) -> dict:
-    config = training_config()
+def execute(conn, spec: DatasetSpec, feature_set="ENRICHED") -> dict:
+    config = training_config(feature_set)
     run_id = uuid.uuid5(uuid.NAMESPACE_URL, "bourse-ai-ml:"+spec.dataset_id+":"+digest(config))
     with db.run_lock(conn, run_id):
         existing = db.get_run(conn, run_id)
@@ -22,7 +22,7 @@ def execute(conn, spec: DatasetSpec) -> dict:
             return {**previous, "reused": True}
         try:
             persisted = db.load(conn, spec.dataset_id)
-            result = train(persisted)
+            result = train(persisted, feature_set)
             folds = [{k:v for k,v in fold.items() if k not in ("predictions", "model")} for fold in result["folds"]]
             summary = {"run_id": str(run_id), "dataset_id": spec.dataset_id,
                        "source": SOURCE, "status": "SUCCEEDED", "model_status": "DEMO_ONLY",

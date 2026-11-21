@@ -25,10 +25,17 @@ FOLDS = (
 )
 CS = (.1, 1., 10.)
 SELECTION_THRESHOLD = .60
+FEATURE_SETS = {"ENRICHED": FEATURES, "PRICE_ONLY": ("technical", "market_momentum", "volatility")}
 
 
-def training_config() -> dict:
-    return {"trainer_version": TRAINER_VERSION, "features": list(FEATURES),
+def feature_names(feature_set):
+    if feature_set not in FEATURE_SETS:
+        raise DataError("Jeu de composantes inconnu")
+    return FEATURE_SETS[feature_set]
+
+
+def training_config(feature_set="ENRICHED") -> dict:
+    return {"trainer_version": TRAINER_VERSION, "features": list(feature_names(feature_set)),
             "folds": [asdict(f) for f in FOLDS], "C_grid": list(CS),
             "selection_threshold": SELECTION_THRESHOLD,
             "versions": {n: importlib.metadata.version(n) for n in ("numpy", "scikit-learn", "scipy")}}
@@ -46,8 +53,15 @@ def partition(rows: list[Observation], fold: Fold):
     return train, validation, test
 
 
-def arrays(rows):
-    return np.array([r.features for r in rows]), np.array([r.is_up for r in rows])
+def arrays(rows, features=FEATURES):
+    indices = [FEATURES.index(f) for f in features]
+    try:
+        x = np.array([[r.features[i] for i in indices] for r in rows], dtype=float)
+    except (ValueError, TypeError, IndexError):
+        raise DataError("Composante requise absente ou invalide") from None
+    if not np.isfinite(x).all():
+        raise DataError("Composante requise absente ou invalide")
+    return x, np.array([r.is_up for r in rows])
 
 
 def event_stats(rows, selected):
@@ -59,7 +73,7 @@ def event_stats(rows, selected):
 
 
 def metrics(rows, probabilities, train_prevalence):
-    p = np.asarray(probabilities, dtype=float); _, y = arrays(rows)
+    p = np.asarray(probabilities, dtype=float); y = np.array([r.is_up for r in rows])
     if p.shape != y.shape or not np.isfinite(p).all() or (p < 0).any() or (p > 1).any():
         raise DataError("Probabilités invalides")
     bins = []
@@ -79,17 +93,18 @@ def metrics(rows, probabilities, train_prevalence):
 
 
 def predict_json(model: dict, rows: list[Observation]) -> np.ndarray:
-    if model["features"] != list(FEATURES) or model["source"] != SOURCE:
+    if tuple(model["features"]) not in FEATURE_SETS.values() or model["source"] != SOURCE:
         raise DataError("Modèle ou composantes incompatibles")
-    x, _ = arrays(rows)
+    x, _ = arrays(rows, model["features"])
     z = (x-np.asarray(model["mean"]))/np.asarray(model["scale"])
     logits = np.clip(z @ np.asarray(model["coefficients"]) + model["intercept"], -700, 700)
     return 1/(1+np.exp(-logits))
 
 
-def fit_fold(rows: list[Observation], fold: Fold) -> dict:
+def fit_fold(rows: list[Observation], fold: Fold, feature_set="ENRICHED") -> dict:
     train, validation, test = partition(rows, fold)
-    x, y = arrays(train); vx, vy = arrays(validation)
+    features = feature_names(feature_set)
+    x, y = arrays(train, features); vx, vy = arrays(validation, features)
     if len(set(y)) < 2:
         raise DataError("L'apprentissage exige des résultats positifs et négatifs")
     best = None
@@ -102,13 +117,13 @@ def fit_fold(rows: list[Observation], fold: Fold) -> dict:
     loss, c, pipeline = best
     scaler, classifier = pipeline.steps[0][1], pipeline.steps[1][1]
     model = {"source": SOURCE, "status": "DEMO_ONLY", "promotion_allowed": False,
-             "features": list(FEATURES), "mean": scaler.mean_.tolist(), "scale": scaler.scale_.tolist(),
+             "features": list(features), "mean": scaler.mean_.tolist(), "scale": scaler.scale_.tolist(),
              "coefficients": classifier.coef_[0].tolist(), "intercept": float(classifier.intercept_[0]),
              "C": c, "validation_brier": loss, "fold": asdict(fold),
              "training_last_outcome": max(r.label_at for r in train).isoformat(),
              "training_rows": len(train), "validation_rows": len(validation),
              "probability_status": "EXPERIMENTAL_SYNTHETIC_ONLY"}
-    tx, _ = arrays(test); probabilities = pipeline.predict_proba(tx)[:, 1]
+    tx, _ = arrays(test, features); probabilities = pipeline.predict_proba(tx)[:, 1]
     if not np.allclose(predict_json(model, test), probabilities, atol=1e-12):
         raise DataError("Le modèle JSON ne reproduit pas les prédictions")
     prevalence = float(y.mean())
@@ -125,10 +140,15 @@ def fit_fold(rows: list[Observation], fold: Fold) -> dict:
                             for r, p in zip(test, probabilities, strict=True)]}
 
 
-def train(rows: list[Observation]) -> dict:
-    folds = [fit_fold(rows, fold) for fold in FOLDS]
+def train(rows: list[Observation], feature_set="ENRICHED") -> dict:
+    folds = [fit_fold(rows, fold, feature_set) for fold in FOLDS]
+    if feature_set == "PRICE_ONLY":
+        for fold in folds:
+            for metric in [fold["metrics"], *fold["stress_results"].values()]:
+                metric["heuristic_selection"] = None
+                metric["heuristic_selection_status"] = "ENRICHED_BASELINE_NOT_COMPARABLE"
     return {"source": SOURCE, "status": "DEMO_ONLY", "promotion_allowed": False,
-            "config": training_config(), "folds": folds,
+            "config": training_config(feature_set), "folds": folds,
             "limitations": ["Synthetic data do not validate investment performance",
                 "Stress labels are evaluation metadata, never model inputs",
                 "Correlated and overlapping events are not independent trials",

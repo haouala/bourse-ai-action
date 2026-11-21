@@ -103,6 +103,17 @@ def test_output_failure_rolls_back_all_models_and_can_recover(connection,monkeyp
     assert connection.execute('SELECT attempts FROM bourse_ml.runs').fetchone()['attempts']==2
 
 
+def test_price_only_and_enriched_share_dataset_but_never_reuse_each_others_models(connection):
+    spec=DatasetSpec(assets=1,seed=307)
+    enriched=batch.execute(connection,spec)
+    price=batch.execute(connection,spec,"PRICE_ONLY")
+    assert enriched['dataset_id']==price['dataset_id']
+    assert enriched['run_id']!=price['run_id']
+    assert price['config']['features']==['technical','market_momentum','volatility']
+    assert price['folds'][0]['metrics']['heuristic_selection'] is None
+    assert batch.execute(connection,spec,"PRICE_ONLY")['reused'] is True
+
+
 def test_interrupted_run_without_outputs_is_recovered(connection):
     spec=DatasetSpec(assets=2,seed=55)
     db.seed(connection,spec,generate(spec));config=training_config()

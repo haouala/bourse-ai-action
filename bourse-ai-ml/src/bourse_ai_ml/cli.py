@@ -10,6 +10,7 @@ from . import repository as db
 from .batch import execute
 from .domain import DatasetSpec, DataError, HORIZONS
 from .reporting import export
+from .training import FEATURE_SETS
 
 
 def emit(value):
@@ -26,6 +27,7 @@ def main(argv=None) -> int:
     commands.add_parser("init-db",help="Créer ou vérifier le schéma bourse_ml seulement")
     demo = commands.add_parser("demo",help="Générer, apprendre, évaluer et enregistrer les données fictives")
     demo.add_argument("--assets",type=int,default=8)
+    demo.add_argument("--feature-set",choices=FEATURE_SETS,default="ENRICHED")
     demo.add_argument("--seed",type=int,default=42)
     demo.add_argument("--horizon",choices=HORIZONS,default="MONTH")
     demo.add_argument("--cost-bps",type=float,default=20.)
@@ -47,7 +49,7 @@ def main(argv=None) -> int:
                 path=export(conn,args.run_id,args.output)
                 emit({"run_id":str(args.run_id),"output":str(path),"retrained":False})
             else:
-                result=execute(conn,spec)
+                result=execute(conn,spec,args.feature_set)
                 path=export(conn,uuid.UUID(result["run_id"]),args.output)
                 emit({k:result[k] for k in ("run_id","dataset_id","status","model_status","promotion_allowed","observation_count","prediction_count","reused")} | {"output":str(path)})
         return 0
