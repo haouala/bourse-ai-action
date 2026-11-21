@@ -24,6 +24,7 @@ public class InformationController {
     @GetMapping("/items/{id}/contents") public List<Map<String,Object>> contents(@PathVariable long id){return work.contents(id);}
     @GetMapping("/items/{id}/analyses") public List<Map<String,Object>> analyses(@PathVariable long id){return analyses.analyses(id);}
     @GetMapping("/assets/{symbol}") public Map<String,Object> asset(@PathVariable String symbol,@RequestParam(defaultValue="DAY")String horizon){return analyses.asset(symbol,horizon);}
+    @GetMapping("/analyses/{id}/reviews") public List<Map<String,Object>> reviews(@PathVariable long id){return analyses.reviews(id);}
     @PostMapping("/analyses/{id}/review") public void review(@PathVariable long id,@RequestHeader(value="X-Review-Token",required=false)String token,@RequestBody InformationAnalysisService.Review request){
         if(reviewToken.length()<32)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Review credential not configured");
         if(token==null||!MessageDigest.isEqual(reviewToken.getBytes(StandardCharsets.UTF_8),token.getBytes(StandardCharsets.UTF_8)))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Review credential required");

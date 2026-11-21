@@ -23,7 +23,7 @@ class BackendModulesApiTest extends DatabaseIntegrationSupport {
         mvc.perform(get("/api/v1/seasonality/API-TEST")).andExpect(status().isOk()).andExpect(jsonPath("$.statistics.monthly.length()").value(12)).andExpect(jsonPath("$.statistics.quarterly.length()").value(4)).andExpect(jsonPath("$.statistics.annual.length()").value(1)).andExpect(jsonPath("$.usableForScoring").value(false));
     }
     @Test void sourceEnableIsExplicitAndDoesNotRunCollection()throws Exception{
-        mvc.perform(get("/api/v1/information/sources")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(12));
+        mvc.perform(get("/api/v1/information/sources")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(14));
         mvc.perform(post("/api/v1/information/sources/FED_PRESS/sync")).andExpect(status().isConflict());
         mvc.perform(put("/api/v1/information/sources/FED_PRESS/enabled").contentType("application/json").content("{\"enabled\":true}")).andExpect(status().isOk());
         mvc.perform(get("/api/v1/information/runs")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));

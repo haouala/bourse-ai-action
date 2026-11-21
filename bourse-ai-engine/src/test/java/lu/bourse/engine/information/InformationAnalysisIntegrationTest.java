@@ -48,5 +48,14 @@ class InformationAnalysisIntegrationTest extends DatabaseIntegrationSupport {
         item("two","FED_PRESS");work.enqueue();var second=work.claim();work.content(id(second),(String)second.get("leaseToken"),new InformationWorkService.Content(TEXT,"ARTICLE_EXTRACT","https://example.org/b","PUBLISHER_HTML",null,List.of()));long b=analyses.complete(id(second),(String)second.get("leaseToken"),result(second,"POSITIVE"));analyses.review(b,new InformationAnalysisService.Review(true,"Conflicting report retained",Map.of("demo-denial","shared-event")));
         var value=analyses.asset("AI_DEMO","DAY");assertThat(value.get("approvedEventCount")).isEqualTo(0);assertThat(value.get("conflictingEventCount")).isEqualTo(1);
     }
+    @Test void approvalCanBeWithdrawnWithoutErasingItsHistory()throws Exception{
+        var job=claim();long a=analyses.complete(id(job),(String)job.get("leaseToken"),result(job,"NEGATIVE"));analyses.review(a,new InformationAnalysisService.Review(true,"Initially checked",Map.of()));analyses.review(a,new InformationAnalysisService.Review(false,"Source retracted its statement",Map.of()));
+        assertThat(analyses.reviews(a)).hasSize(2);assertThat(analyses.reviews(a).getFirst().get("decision")).isEqualTo("APPROVED");assertThat(analyses.asset("AI_DEMO","DAY").get("approvedEventCount")).isEqualTo(0);
+    }
+    @Test void correctedArticleSupersedesOldApprovedVersionUntilItIsReexamined()throws Exception{
+        var job=claim();long a=analyses.complete(id(job),(String)job.get("leaseToken"),result(job,"NEGATIVE"));analyses.review(a,new InformationAnalysisService.Review(true,"Original checked",Map.of()));
+        db.update("INSERT INTO information_items(source_code,external_key,content_hash,title,summary,original_url,published_at,collected_at,review_status) VALUES ('FED_PRESS','one','corrected','Correction','Corrected text','https://example.org/a',?,?,'PENDING_REVIEW')",Timestamp.from(NOW.minusSeconds(60)),Timestamp.from(NOW));
+        assertThat(analyses.asset("AI_DEMO","DAY").get("approvedEventCount")).isEqualTo(0);assertThat(analyses.reviews(a)).hasSize(1);
+    }
     static long id(Map<String,Object> job){return ((Number)job.get("jobId")).longValue();}
 }
