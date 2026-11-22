@@ -3,7 +3,6 @@ package lu.bourse.engine.service;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
-import java.sql.Statement;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -55,7 +54,7 @@ public class PredictionTrackingService {
   jdbc.update(con->{
    var ps=con.prepareStatement(
     "INSERT INTO prediction_records(asset_id,model_name,model_version,horizon_days,predicted_price,reference_price,reference_time,predicted_at,target_time) VALUES (?,?,?,?,?,?,?,?,?)",
-    Statement.RETURN_GENERATED_KEYS);
+    new String[]{"ID"});
    ps.setLong(1,id);ps.setString(2,request.modelName());ps.setString(3,request.modelVersion());
    ps.setInt(4,request.horizonDays());ps.setBigDecimal(5,request.predictedPrice());
    ps.setBigDecimal(6,latest.get(0).close());ps.setTimestamp(7,Timestamp.from(latest.get(0).date()));
