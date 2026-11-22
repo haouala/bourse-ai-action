@@ -47,8 +47,9 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
                 composable("market") { MarketScreen(store) { nav.navigate("asset/${Uri.encode(it)}") } }
                 composable("asset/{symbol}") { e ->
                     val symbol = e.arguments?.getString("symbol").orEmpty()
-                    AssetScreen(store, symbol, { nav.navigate("analysis/${Uri.encode(symbol)}") }, { nav.navigate("calendar/${Uri.encode(symbol)}") })
+                    AssetScreen(store, symbol, { nav.navigate("analysis/${Uri.encode(symbol)}") }, { nav.navigate("calendar/${Uri.encode(symbol)}") }, { nav.navigate("research/${Uri.encode(symbol)}") })
                 }
+                composable("research/{symbol}") { ResearchDashboardScreen(store, it.arguments?.getString("symbol").orEmpty()) }
                 composable("calendar/{symbol}") { CalendarScreen(store, it.arguments?.getString("symbol").orEmpty()) }
                 composable("analysis/{symbol}") { e ->
                     val symbol = e.arguments?.getString("symbol").orEmpty()
