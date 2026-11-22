@@ -7,6 +7,7 @@ import java.time.Instant
 
 /** Local fixtures only. They never call or write to a server. */
 class DemoTransport : Transport {
+    private val research = DemoResearch()
     private val analysis = DemoAnalysis()
     private val information = DemoInformation()
     private val portfolio = DemoPortfolio()
@@ -30,6 +31,7 @@ class DemoTransport : Transport {
         return obj("symbol" to symbol, "timeframe" to timeframe, "currency" to "USD", "candles" to bars, "latestIndicators" to obj("sma20" to base * 1.028, "rsi14" to 56.2, "macd" to 0.84, "macdSignal" to 0.65, "macdHistogram" to 0.19), "warning" to "FICTITIOUS_DEMO_DATA")
     }
     override suspend fun request(method: String, path: List<String>, query: Map<String, String>, body: JsonObject?): JsonElement {
+        research.request(method, path, query)?.let { return it }
         analysis.request(method, path, query, body)?.let { return it }
         information.request(method, path, query, body)?.let { return it }
         portfolio.request(method, path, body) { symbol -> watchlist.firstOrNull { it.asJsonObject.text("symbol") == symbol }?.asJsonObject }?.let { return it }
