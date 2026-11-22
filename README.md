@@ -13,7 +13,7 @@ git clone https://github.com/haouala/bourse-ai-action.git
 cd bourse-ai-action
 cp .env.example .env
 # Ouvrir .env et renseigner DB_PASSWORD
-./start.sh
+bash start.sh
 ```
 
 Sous Windows PowerShell :
