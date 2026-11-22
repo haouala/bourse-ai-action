@@ -1,5 +1,7 @@
 server:
   port: ${SERVER_PORT:8081}
+  # Bind to loopback by default until user authorization is implemented and tested.
+  address: ${SERVER_BIND_ADDRESS:127.0.0.1}
 information:
   ai:
     enabled: ${INFORMATION_AI_ENABLED:false}
@@ -68,6 +70,7 @@ market:
     base-url: https://api.gdeltproject.org
   sec:
     base-url: https://data.sec.gov
+    archives-base-url: https://www.sec.gov
     user-agent: ${SEC_USER_AGENT:}
   fmp:
     base-url: https://financialmodelingprep.com
