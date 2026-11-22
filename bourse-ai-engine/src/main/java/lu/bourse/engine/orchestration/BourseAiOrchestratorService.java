@@ -146,6 +146,15 @@ public class BourseAiOrchestratorService {
                 return new Outcome(task.id(),task.symbol(),"PARTIAL",qualityStatus,
                     "NOT_EVALUATED","NOT_EVALUATED",0,"DATA_BLOCKED_OR_SUPERSEDED");
             }
+            // Regime requires 65 independent daily closes. A shorter history is a final
+            // data-readiness state for this candle, not an operational failure to retry
+            // repeatedly while the provider is still backfilling.
+            if (report.candleCount()<65) {
+                finish(task,"PARTIAL",qualityStatus,"INSUFFICIENT_HISTORY",
+                    "INSUFFICIENT_HISTORY",0,"NEED_65_DAILY_CLOSES",clock.instant());
+                return new Outcome(task.id(),task.symbol(),"PARTIAL",qualityStatus,
+                    "INSUFFICIENT_HISTORY","INSUFFICIENT_HISTORY",0,"NEED_65_DAILY_CLOSES");
+            }
             // Scoring and regime are exploratory. Insufficient data is NOT a transient provider error.
             var score = scoring.score(task.symbol(),30);
             scoreStatus = score.status();
