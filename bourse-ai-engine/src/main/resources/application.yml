@@ -51,6 +51,13 @@ engine:
   max-positions: 5
   risk-per-trade-eur: 5
 
+# The orchestrator consumes already-imported canonical daily closes and NEVER calls providers.
+# Keep disabled until collection quotas and historical data have been verified.
+orchestrator:
+  enabled: ${ORCHESTRATOR_ENABLED:false}
+  max-per-tick: ${ORCHESTRATOR_MAX_PER_TICK:5}
+  delay-ms: ${ORCHESTRATOR_DELAY_MS:300000}
+
 market:
   scheduler:
     enabled: ${MARKET_SCHEDULER_ENABLED:false}
