@@ -25,6 +25,10 @@ spring:
   application:
     name: bourse-ai-engine
   datasource:
+    # Bound pool prevents dozens of Spring test contexts exhausting PostgreSQL connections.
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 1
     url: jdbc:h2:mem:bourseai;MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
