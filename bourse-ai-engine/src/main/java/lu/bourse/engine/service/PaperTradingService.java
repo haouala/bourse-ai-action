@@ -79,7 +79,15 @@ public class PaperTradingService {
   if(balances.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Paper account missing");
   List<Long> old=jdbc.query("SELECT id FROM paper_trades WHERE account_id=? AND client_order_id=?",
    (r,i)->r.getLong(1),request.accountId(),request.clientOrderId());
-  if(!old.isEmpty())return getFill(old.get(0)); // retries cannot double-spend
+  // Idempotency requires identical payload, not merely a reused external identifier.
+  // A mismatched retry is a client conflict, never a silently accepted new trade.
+  if(!old.isEmpty()){
+   Fill original=getFill(old.get(0));
+   if(!original.symbol().equals(symbol)||!original.side().equals(request.side())||
+      original.quantity().compareTo(request.quantity())!=0)
+    throw new ResponseStatusException(HttpStatus.CONFLICT,"Client order ID reused with different order fields");
+   return original;
+  }
 
   if("BLOCKED".equals(quality.check(symbol,"1d").status()))
    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Price history failed quality checks");
