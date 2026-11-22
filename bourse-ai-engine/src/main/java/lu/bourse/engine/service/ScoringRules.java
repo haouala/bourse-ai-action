@@ -6,6 +6,14 @@ import java.util.*;
 public final class ScoringRules {
  private ScoringRules(){}
  public record Scores(int opportunity,int risk,Integer reliability,String status,List<String> reasons){}
+ /**
+  * Produit trois axes indépendants sur [0,100].
+  * <p>Opportunité : scénario médian historique par rapport au dernier prix (heuristique bornée).
+  * Risque : baisse du scénario défavorable + volatilité journalière réalisée + avertissements de qualité.
+  * Fiabilité : absente tant que 30 prévisions réellement échues et évaluées ne sont pas disponibles.
+  * <p>Ne convertissez jamais ces scores en probabilités de gain :
+  * les coefficients sont pédagogiques et non calibrés hors échantillon.
+  */
  public static Scores calculate(double projectedReturnPct,double downsidePct,double realizedDailyVolatility,
                                  int qualityWarnings,Double holdoutErrorPct,Double naiveErrorPct,
                                  Integer evaluatedPredictions,Double directionAccuracyPct){
