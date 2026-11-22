@@ -16,7 +16,9 @@ fi
 command -v docker >/dev/null || { echo "Docker is required." >&2; exit 1; }
 command -v mvn >/dev/null || { echo "Maven 3.9+ is required." >&2; exit 1; }
 command -v java >/dev/null || { echo "JDK 21 is required." >&2; exit 1; }
-docker compose --env-file "$ROOT/.env" -f "$ROOT/bourse-ai-engine/docker-compose.yml" up -d postgres
+if [[ "${START_POSTGRES:-true}" != "false" ]]; then
+  docker compose --env-file "$ROOT/.env" -f "$ROOT/bourse-ai-engine/docker-compose.yml" up -d --wait postgres
+fi
 echo "PostgreSQL started (persistent volume). Backend: http://127.0.0.1:${SERVER_PORT:-8081}"
 cd "$ROOT/bourse-ai-engine"
 exec mvn -B -ntp -Dspring-boot.run.profiles=postgres spring-boot:run
