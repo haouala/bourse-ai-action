@@ -47,17 +47,20 @@ public final class PriceForecastMath {
    throw new IllegalArgumentException("Insufficient purged training or untouched holdout outcomes");
   Collections.sort(training);
   double low=quantile(training,.10),median=quantile(training,.50),high=quantile(training,.90);
-  // Collect holdout errors so the reported metric is a true median, not a mean.\n  List<Double> absoluteErrors=new ArrayList<>(),naiveErrors=new ArrayList<>();\n  double covered=0;
+  // True holdout median: sort absolute percentage errors from each historical prediction.
+  List<Double> absoluteErrors=new ArrayList<>(),naiveErrors=new ArrayList<>();
+  double covered=0;
   for(Outcome obs:validation){
    double origin=prices.get(obs.startIndex()).price();
    double actual=prices.get(obs.endIndex()).price();
    double predicted=origin*Math.exp(median);
-   totalAbs+=Math.abs(predicted/actual-1)*100;
-   naiveAbs+=Math.abs(origin/actual-1)*100;
+   absoluteErrors.add(Math.abs(predicted/actual-1)*100);
+   naiveErrors.add(Math.abs(origin/actual-1)*100);
    if(obs.logReturn()>=low&&obs.logReturn()<=high)covered++;
   }
-  Validation metrics=new Validation(validation.size(),round(totalAbs/validation.size()),
-    round(covered/validation.size()),round(naiveAbs/validation.size()));
+  Collections.sort(absoluteErrors);Collections.sort(naiveErrors);
+  Validation metrics=new Validation(validation.size(),round(quantile(absoluteErrors,.50)),
+    round(covered/validation.size()),round(quantile(naiveErrors,.50)));
   return new Estimate(horizonDays,training.size(),validation.size(),low,median,high,metrics);
  }
 
