@@ -202,7 +202,7 @@ public class DemoActivity extends Activity {
     private class LineChart extends View {
        private final double base;private final int chartHeight;
        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-       LineChart(Activity context,double base,int h){super(context);this.base=base;this.chartHeight=h;setLayoutParams(layout(-1,h));}
+       LineChart(Activity context,double base,int h){super(context);this.base=base;this.chartHeight=h;setLayoutParams(DemoActivity.this.layout(-1,h));}
        @Override protected void onDraw(Canvas canvas){
           super.onDraw(canvas);
           float w=getWidth(),h=getHeight();if(w==0||h==0)return;
