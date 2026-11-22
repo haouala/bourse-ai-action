@@ -47,7 +47,7 @@ public final class PriceForecastMath {
    throw new IllegalArgumentException("Insufficient purged training or untouched holdout outcomes");
   Collections.sort(training);
   double low=quantile(training,.10),median=quantile(training,.50),high=quantile(training,.90);
-  double totalAbs=0,naiveAbs=0,covered=0;
+  // Collect holdout errors so the reported metric is a true median, not a mean.\n  List<Double> absoluteErrors=new ArrayList<>(),naiveErrors=new ArrayList<>();\n  double covered=0;
   for(Outcome obs:validation){
    double origin=prices.get(obs.startIndex()).price();
    double actual=prices.get(obs.endIndex()).price();
