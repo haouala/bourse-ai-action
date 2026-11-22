@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bourse AI</string>
+    <string name="welcome">Votre espace de suivi boursier</string>
+    <string name="initial_project">Projet Android initialisé</string>
+    <string name="initial_description">Le socle mobile est prêt pour les prochaines étapes. Aucune donnée de marché ni aucun score réel ne sont affichés pour le moment.</string>
+    <string name="next_steps">Fonctions à connecter au backend</string>
+    <string name="future_watchlist">Actions et cryptomonnaies à surveiller</string>
+    <string name="future_positions">Positions et budget de risque</string>
+    <string name="future_explanations">Actualités, sources et explications des scores</string>
+</resources>
