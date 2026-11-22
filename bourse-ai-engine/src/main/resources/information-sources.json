@@ -1,0 +1,118 @@
+[
+  {
+    "code": "FED_PRESS",
+    "name": "Federal Reserve press releases",
+    "feedUrl": "https://www.federalreserve.gov/feeds/press_all.xml",
+    "evidenceUrl": "https://www.federalreserve.gov/feeds/feeds.htm",
+    "region": "US",
+    "language": "en"
+  },
+  {
+    "code": "FED_SPEECHES",
+    "name": "Federal Reserve speeches",
+    "feedUrl": "https://www.federalreserve.gov/feeds/speeches.xml",
+    "evidenceUrl": "https://www.federalreserve.gov/feeds/feeds.htm",
+    "region": "US",
+    "language": "en"
+  },
+  {
+    "code": "FED_TESTIMONY",
+    "name": "Federal Reserve testimony",
+    "feedUrl": "https://www.federalreserve.gov/feeds/testimony.xml",
+    "evidenceUrl": "https://www.federalreserve.gov/feeds/feeds.htm",
+    "region": "US",
+    "language": "en"
+  },
+  {
+    "code": "ECB_PRESS",
+    "name": "European Central Bank releases and speeches",
+    "feedUrl": "https://www.ecb.europa.eu/rss/press.html",
+    "evidenceUrl": "https://www.ecb.europa.eu/home/html/rss.en.html",
+    "region": "EU",
+    "language": "en"
+  },
+  {
+    "code": "BOE_NEWS",
+    "name": "Bank of England news",
+    "feedUrl": "https://www.bankofengland.co.uk/rss/news",
+    "evidenceUrl": "https://www.bankofengland.co.uk/rss",
+    "region": "UK",
+    "language": "en"
+  },
+  {
+    "code": "BOE_SPEECHES",
+    "name": "Bank of England speeches",
+    "feedUrl": "https://www.bankofengland.co.uk/rss/speeches",
+    "evidenceUrl": "https://www.bankofengland.co.uk/rss",
+    "region": "UK",
+    "language": "en"
+  },
+  {
+    "code": "UK_TREASURY",
+    "name": "HM Treasury publications",
+    "feedUrl": "https://www.gov.uk/government/organisations/hm-treasury.atom",
+    "evidenceUrl": "https://www.gov.uk/government/organisations/hm-treasury",
+    "region": "UK",
+    "language": "en"
+  },
+  {
+    "code": "UN_NEWS",
+    "name": "United Nations global news",
+    "feedUrl": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+    "evidenceUrl": "https://news.un.org/en/",
+    "region": "GLOBAL",
+    "language": "en"
+  },
+  {
+    "code": "BBC_BUSINESS",
+    "name": "BBC business news",
+    "feedUrl": "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "evidenceUrl": "https://www.bbc.com/news/business",
+    "region": "GLOBAL",
+    "language": "en"
+  },
+  {
+    "code": "LEMONDE_ECONOMIE",
+    "name": "Le Monde economie",
+    "feedUrl": "https://www.lemonde.fr/economie/rss_full.xml",
+    "evidenceUrl": "https://www.lemonde.fr/economie/",
+    "region": "GLOBAL",
+    "language": "fr"
+  },
+  {
+    "code": "ALJAZEERA_EN",
+    "name": "Al Jazeera international news",
+    "feedUrl": "https://www.aljazeera.com/xml/rss/all.xml",
+    "evidenceUrl": "https://www.aljazeera.com/",
+    "region": "GLOBAL",
+    "language": "en"
+  },
+  {
+    "code": "FRANCE24_FR",
+    "name": "France 24 actualites internationales",
+    "feedUrl": "https://www.france24.com/fr/rss",
+    "evidenceUrl": "https://www.france24.com/fr/",
+    "region": "GLOBAL",
+    "language": "fr"
+  },
+  {
+    "code": "RICHMOND_PODCAST",
+    "name": "Richmond Fed Speaking of the Economy",
+    "feedUrl": "https://speakingoftheeconomy.libsyn.com/rss",
+    "evidenceUrl": "https://www.richmondfed.org/podcasts/speaking_of_the_economy",
+    "region": "US",
+    "language": "en",
+    "contentKind": "PODCAST",
+    "publisherGroup": "RICHMOND_FED"
+  },
+  {
+    "code": "RBC_TAKE",
+    "name": "RBC Economics The 10-Minute Take",
+    "feedUrl": "https://feeds.captivate.fm/the-10-minute-take/",
+    "evidenceUrl": "https://www.rbc.com/en/economics/the-10-minute-take/",
+    "region": "GLOBAL",
+    "language": "en",
+    "contentKind": "PODCAST",
+    "publisherGroup": "RBC"
+  }
+]

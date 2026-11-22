@@ -19,6 +19,7 @@ public class ProviderController {
  @PostMapping("/providers/fmp/sync/{symbol}") public FmpProfileService.Profile profile(@PathVariable String symbol){return fmp.sync(symbol);}
  @GetMapping("/company/{symbol}") public FmpProfileService.Profile getProfile(@PathVariable String symbol){return fmp.get(symbol);}
  @PostMapping("/news/analyze/{symbol}") public NewsHeuristicAnalysisService.Result analyzeNews(@PathVariable String symbol){return newsAnalysis.analyze(symbol);}
- @PostMapping("/providers/eodhd/sync/{symbol}") public EodhdEuropeService.SyncResult syncEurope(@PathVariable String symbol,@RequestParam String providerSymbol,@RequestParam(defaultValue="EUR") String currency,@RequestParam(required=false) String name){return europe.sync(symbol,providerSymbol,currency,name);}
+ @PostMapping("/providers/eodhd/sync/{symbol}") public EodhdEuropeService.SyncResult syncEurope(@PathVariable String symbol,@RequestParam String providerSymbol,@RequestParam(defaultValue="EUR") String currency,@RequestParam(required=false) String name,@RequestParam(defaultValue="1") int years,@RequestParam(defaultValue="STOCK") String assetType){return europe.sync(symbol,providerSymbol,currency,name,years,assetType);}
  @GetMapping("/providers/eodhd/observations/{symbol}") public List<EodhdEuropeService.ProviderPrice> europePrices(@PathVariable String symbol){return europe.observations(symbol);}
 }
+

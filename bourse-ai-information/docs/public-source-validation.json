@@ -1,0 +1,149 @@
+{
+  "checkedAt": "2026-11-21T12:12:34.051907+00:00",
+  "transport": "Public HTTP through workspace egress proxy; XML parsed and production content extractor used. Not an OpenAI or production pinned-transport test.",
+  "paidAiCalls": 0,
+  "feeds": [
+    {
+      "source": "FED_PRESS",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "http": 200,
+      "bytes": 14457,
+      "sha256": "72529d13594fbe7456a5701eb087c253b2cff213510b8d76e442bd97d570aa4e",
+      "entries": 20,
+      "articleError": "HTTPError"
+    },
+    {
+      "source": "FED_SPEECHES",
+      "url": "https://www.federalreserve.gov/feeds/speeches.xml",
+      "http": 200,
+      "bytes": 9967,
+      "sha256": "c9bf5d1e8ec7fb18a0476f7f202a2ad27c48b9fe68afb0378cd9f571fb9eeb03",
+      "entries": 15
+    },
+    {
+      "source": "FED_TESTIMONY",
+      "url": "https://www.federalreserve.gov/feeds/testimony.xml",
+      "http": 200,
+      "bytes": 9491,
+      "sha256": "77fb2cfab34560d077485280233bdde36ea9a4bc56b9fbb8db05f91368c867cf",
+      "entries": 15
+    },
+    {
+      "source": "ECB_PRESS",
+      "url": "https://www.ecb.europa.eu/rss/press.html",
+      "http": 200,
+      "bytes": 5783,
+      "sha256": "6b3a5ddee3fcab48800464dcdb23e0ee57da0e6d62cdbff94f2419c4e47627cb",
+      "entries": 15
+    },
+    {
+      "source": "BOE_NEWS",
+      "url": "https://www.bankofengland.co.uk/rss/news",
+      "http": 200,
+      "bytes": 26015,
+      "sha256": "70b89f91376c7b3fee5ec00a8d3d3ab64b8b5784f4e16b262c3044355ff29dc2",
+      "entries": 50
+    },
+    {
+      "source": "BOE_SPEECHES",
+      "url": "https://www.bankofengland.co.uk/rss/speeches",
+      "http": 200,
+      "bytes": 21968,
+      "sha256": "a91496e5930ca68c5f40afe7df040b48d783cd53d85586c2b505518d9975b52a",
+      "entries": 50
+    },
+    {
+      "source": "UK_TREASURY",
+      "url": "https://www.gov.uk/government/organisations/hm-treasury.atom",
+      "http": 200,
+      "bytes": 12447,
+      "sha256": "a596ccfac3735d470f0449719835dd1f67dfa0f7f3191d74ab1dfc7c01cdb080",
+      "entries": 20
+    },
+    {
+      "source": "UN_NEWS",
+      "url": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+      "http": 200,
+      "bytes": 34638,
+      "sha256": "820bf1db5875f69aa35748f9fef43b9cab4b4ab35e0eb77db28c2162e28aba78",
+      "entries": 30
+    },
+    {
+      "source": "BBC_BUSINESS",
+      "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "http": 200,
+      "bytes": 43083,
+      "sha256": "91ed77434b89ccfb52aa815da3479e2971e82a138595640f654174ec89ef642a",
+      "entries": 58
+    },
+    {
+      "source": "LEMONDE_ECONOMIE",
+      "url": "https://www.lemonde.fr/economie/rss_full.xml",
+      "http": 200,
+      "bytes": 28262,
+      "sha256": "e906e1552365aec957c9df2ce71c1e30f5dc9e5999a095fbf05a8d4636182ac6",
+      "entries": 20
+    },
+    {
+      "source": "ALJAZEERA_EN",
+      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "http": 200,
+      "bytes": 17383,
+      "sha256": "4c756cd21be42292a8d6ec465aea3c571b7433540d27c2fd2a6571c4c43f6387",
+      "entries": 25
+    },
+    {
+      "source": "FRANCE24_FR",
+      "url": "https://www.france24.com/fr/rss",
+      "http": 200,
+      "bytes": 28399,
+      "sha256": "746c14a6b439002d5a8dc06fe9328389f7d7f84a162d635508849a43e81fc313",
+      "entries": 24
+    },
+    {
+      "source": "RICHMOND_PODCAST",
+      "url": "https://speakingoftheeconomy.libsyn.com/rss",
+      "http": 200,
+      "bytes": 565672,
+      "sha256": "98e93270f09fd81c0a2e18b00664f7c82bf257b2792b665b85a2fa1a58b7e484",
+      "entries": 222
+    },
+    {
+      "source": "RBC_TAKE",
+      "url": "https://feeds.captivate.fm/the-10-minute-take/",
+      "http": 200,
+      "bytes": 384996,
+      "sha256": "f250539cce7043e34a59d5af389a26e2b4c9753e1e345f8d7070e4e018f49bbb",
+      "entries": 141
+    }
+  ],
+  "transcripts": [
+    {
+      "url": "https://www.rbc.com/en/economics/the-10-minute-take/",
+      "scope": "TRANSCRIPT",
+      "characters": 10611,
+      "episodeTitleMatched": true,
+      "sha256": "cfeaa6a651c3d306676129968a8cecdbf2394349093616d2a3420ee4fe035521"
+    },
+    {
+      "url": "https://www.richmondfed.org/podcasts/speaking_of_the_economy/2026/speaking_2026_11_18_IRA_place_development",
+      "scope": "TRANSCRIPT",
+      "characters": 14691,
+      "episodeTitleMatched": false,
+      "sha256": "854a1bd107a86ae8f9a650e1b7882d4151aebe243c1bc486b4e4a8c1a7f70a89"
+    }
+  ],
+  "articles": [
+    {
+      "feedUrl": "https://www.ecb.europa.eu/rss/press.html",
+      "url": "https://www.ecb.europa.eu//press/key/date/2026/html/ecb.sp261120~e52bcc4db2.en.html",
+      "http": 200,
+      "scope": "ARTICLE_EXTRACT",
+      "characters": 17991
+    },
+    {
+      "feedUrl": "https://www.bankofengland.co.uk/rss/news",
+      "error": "HTTP_403"
+    }
+  ]
+}

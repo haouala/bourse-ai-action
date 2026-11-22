@@ -1,0 +1,55 @@
+package lu.bourse.engine.market;
+
+import lu.bourse.engine.persistence.SqlIds;
+import lu.bourse.engine.provider.*;
+import lu.bourse.engine.provider.quota.QuotaExceededException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.server.ResponseStatusException;
+import java.sql.Timestamp;
+import java.time.*;
+import java.util.*;
+
+@Service
+public class MarketTaskService {
+    private final JdbcTemplate db; private final TwelveDataSeriesService series; private final Clock clock;
+    private final TransactionTemplate transaction;
+    public MarketTaskService(JdbcTemplate db,TwelveDataSeriesService series,Clock clock,PlatformTransactionManager manager){this.db=db;this.series=series;this.clock=clock;transaction=new TransactionTemplate(manager);}
+    public List<Map<String,Object>> list(){return db.queryForList("SELECT t.*,a.symbol FROM market_sync_tasks t JOIN assets a ON a.id=t.asset_id ORDER BY t.id DESC LIMIT 200");}
+    /** Claim under a short DB lock; never keep the transaction open during remote HTTP. */
+    public Map<String,Object> runNext(){
+        Instant now=clock.instant();
+        Map<String,Object> task=transaction.execute(status->{
+            var rows=db.queryForList("SELECT t.* FROM market_sync_tasks t JOIN watchlist w ON w.asset_id=t.asset_id WHERE w.enabled=TRUE AND ((t.status IN ('PENDING','DEFERRED') AND t.next_attempt_at<=?) OR (t.status='RUNNING' AND t.lease_until<=?)) ORDER BY t.next_attempt_at,t.id LIMIT 1 FOR UPDATE",Timestamp.from(now),Timestamp.from(now));
+            if(rows.isEmpty())return null;
+            var row=rows.getFirst();
+            db.update("UPDATE market_sync_tasks SET status='RUNNING',lease_until=?,attempts=attempts+1,updated_time=CURRENT_TIMESTAMP WHERE id=?",Timestamp.from(now.plusSeconds(600)),row.get("id"));
+            return row;
+        });
+        if(task==null)return Map.of("status","IDLE");
+        long id=((Number)task.get("id")).longValue();
+        try{
+            var asset=db.queryForList("SELECT a.*,w.provider_symbol FROM assets a JOIN watchlist w ON a.id=w.asset_id WHERE a.id=?",task.get("asset_id")).getFirst();
+            var result=series.sync(asset,(String)task.get("timeframe"));
+            finish(id,"SUCCEEDED",result.inserted(),null,now);
+            return Map.of("taskId",id,"status","SUCCEEDED","inserted",result.inserted(),"skipped",result.skipped());
+        }catch(QuotaExceededException e){
+            Instant retry=e.retryAt()==null?now.plusSeconds(86400):e.retryAt().plusSeconds(1);
+            finish(id,"DEFERRED",0,"LOCAL_QUOTA",retry);
+            return Map.of("taskId",id,"status","DEFERRED","reason","LOCAL_QUOTA");
+        }catch(ResponseStatusException e){
+            int code=e.getStatusCode().value();
+            boolean retry=code==429 || code==502;
+            int attempts=((Number)task.get("attempts")).intValue()+1;
+            String state=retry && attempts<3?"DEFERRED":"FAILED";
+            finish(id,state,0,"HTTP_"+code,now.plusSeconds(code==429?86400:900));
+            return Map.of("taskId",id,"status",state,"reason","HTTP_"+code);
+        }catch(Exception e){
+            finish(id,"FAILED",0,"LOCAL_FAILURE",now);
+            return Map.of("taskId",id,"status","FAILED","reason","LOCAL_FAILURE");
+        }
+    }
+    private void finish(long id,String state,int imported,String error,Instant next){db.update("UPDATE market_sync_tasks SET status=?,imported_count=?,error_code=?,next_attempt_at=?,lease_until=NULL,updated_time=CURRENT_TIMESTAMP WHERE id=?",state,imported,error,Timestamp.from(next),id);}
+}

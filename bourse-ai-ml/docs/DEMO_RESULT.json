@@ -1,0 +1,708 @@
+{
+  "same_postgresql_database": true,
+  "java_remained_available": true,
+  "public_before": {
+    "tables": 43,
+    "rows": 1126,
+    "sha256": "e5e4b6be1bae61912d1782e1e636a23591bf6cd577b3736176790ce079a7f598"
+  },
+  "public_after": {
+    "tables": 43,
+    "rows": 1126,
+    "sha256": "e5e4b6be1bae61912d1782e1e636a23591bf6cd577b3736176790ce079a7f598"
+  },
+  "ml_schema": "bourse_ml",
+  "backend_rules_modified": false,
+  "demo_result": {
+    "run_id": "4cd7876e-bf90-5cfa-8d85-adf914a4106f",
+    "dataset_id": "2112ec90285cd916b7f58ee0c4738827351d4b53b8273081039cefc657f1b3f6",
+    "status": "SUCCEEDED",
+    "model_status": "DEMO_ONLY",
+    "promotion_allowed": false,
+    "observation_count": 47672,
+    "prediction_count": 16040,
+    "reused": false,
+    "output": "output/shared-backend/4cd7876e-bf90-5cfa-8d85-adf914a4106f"
+  },
+  "second_run_reused": true,
+  "postgres_version": "17.7",
+  "synthetic_data_only": true,
+  "backend_base_commit": "856c5e538968515626fe370c1c1179b0ccba8875",
+  "unit_and_postgres_tests": {
+    "tests": 42,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "folds": [
+    {
+      "fold": "financial_2008",
+      "metrics": {
+        "auc": 0.33732865951534163,
+        "rows": 4016,
+        "brier": 0.44910990958896724,
+        "log_loss": 1.3771135711458815,
+        "distinct_dates": 502,
+        "model_selection": {
+          "count": 2039,
+          "mean_net_return": -0.06362994065059256,
+          "worst_net_return": -0.3056143146259208,
+          "positive_fraction": 0.22511034820990683,
+          "worst_adverse_close_return": -0.3056143146259208
+        },
+        "reliability_bins": [
+          {
+            "count": 0,
+            "lower": 0.0,
+            "upper": 0.2,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          },
+          {
+            "count": 236,
+            "lower": 0.2,
+            "upper": 0.4,
+            "mean_estimate": 0.3701287911075089,
+            "observed_positive_fraction": 0.4110169491525424
+          },
+          {
+            "count": 1741,
+            "lower": 0.4,
+            "upper": 0.6,
+            "mean_estimate": 0.499164578295644,
+            "observed_positive_fraction": 0.5318782309017805
+          },
+          {
+            "count": 286,
+            "lower": 0.6,
+            "upper": 0.8,
+            "mean_estimate": 0.6757509625254964,
+            "observed_positive_fraction": 0.32167832167832167
+          },
+          {
+            "count": 1753,
+            "lower": 0.8,
+            "upper": 1.0,
+            "mean_estimate": 0.9280262845361766,
+            "observed_positive_fraction": 0.20935539075869938
+          }
+        ],
+        "heuristic_selection": {
+          "count": 633,
+          "mean_net_return": -0.027992050852806108,
+          "worst_net_return": -0.3056143146259208,
+          "positive_fraction": 0.41232227488151657,
+          "worst_adverse_close_return": -0.3056143146259208
+        },
+        "train_prevalence_brier": 0.24266478501571745
+      },
+      "stress_results": {
+        "DEMO_NORMAL": {
+          "auc": 0.458681940750591,
+          "rows": 2280,
+          "brier": 0.2673394273065762,
+          "log_loss": 0.7342151102174093,
+          "distinct_dates": 285,
+          "model_selection": {
+            "count": 304,
+            "mean_net_return": -0.010695856094223617,
+            "worst_net_return": -0.1262868233365524,
+            "positive_fraction": 0.4243421052631579,
+            "worst_adverse_close_return": -0.1262868233365524
+          },
+          "reliability_bins": [
+            {
+              "count": 0,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 236,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.3701287911075089,
+              "observed_positive_fraction": 0.4110169491525424
+            },
+            {
+              "count": 1740,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.49910796559689113,
+              "observed_positive_fraction": 0.532183908045977
+            },
+            {
+              "count": 189,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": 0.6487602389948905,
+              "observed_positive_fraction": 0.37037037037037035
+            },
+            {
+              "count": 115,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": 0.8704738957216923,
+              "observed_positive_fraction": 0.5130434782608696
+            }
+          ],
+          "heuristic_selection": {
+            "count": 419,
+            "mean_net_return": 0.0077027749575283985,
+            "worst_net_return": -0.12853965699955383,
+            "positive_fraction": 0.5632458233890215,
+            "worst_adverse_close_return": -0.12853996799281742
+          },
+          "train_prevalence_brier": 0.25135210583684375
+        },
+        "DEMO_FINANCIAL_2008": {
+          "auc": 0.605978705978706,
+          "rows": 1736,
+          "brier": 0.6878407273331213,
+          "log_loss": 2.2214733009367325,
+          "distinct_dates": 217,
+          "model_selection": {
+            "count": 1735,
+            "mean_net_return": -0.07290484653251543,
+            "worst_net_return": -0.3056143146259208,
+            "positive_fraction": 0.19020172910662825,
+            "worst_adverse_close_return": -0.3056143146259208
+          },
+          "reliability_bins": [
+            {
+              "count": 0,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 0,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 1,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.5976706741256054,
+              "observed_positive_fraction": 0.0
+            },
+            {
+              "count": 97,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": 0.7283411351779141,
+              "observed_positive_fraction": 0.2268041237113402
+            },
+            {
+              "count": 1638,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": 0.9320668979144829,
+              "observed_positive_fraction": 0.18803418803418803
+            }
+          ],
+          "heuristic_selection": {
+            "count": 214,
+            "mean_net_return": -0.09788051821042368,
+            "worst_net_return": -0.3056143146259208,
+            "positive_fraction": 0.11682242990654206,
+            "worst_adverse_close_return": -0.3056143146259208
+          },
+          "train_prevalence_brier": 0.23125517011239483
+        }
+      }
+    },
+    {
+      "fold": "covid_2020",
+      "metrics": {
+        "auc": 0.5617846182970329,
+        "rows": 4016,
+        "brier": 0.254649532955848,
+        "log_loss": 0.7055546278510045,
+        "distinct_dates": 502,
+        "model_selection": {
+          "count": 0,
+          "mean_net_return": null,
+          "worst_net_return": null,
+          "positive_fraction": null,
+          "worst_adverse_close_return": null
+        },
+        "reliability_bins": [
+          {
+            "count": 44,
+            "lower": 0.0,
+            "upper": 0.2,
+            "mean_estimate": 0.19237245697103508,
+            "observed_positive_fraction": 0.45454545454545453
+          },
+          {
+            "count": 697,
+            "lower": 0.2,
+            "upper": 0.4,
+            "mean_estimate": 0.28345290557684577,
+            "observed_positive_fraction": 0.4763271162123386
+          },
+          {
+            "count": 3275,
+            "lower": 0.4,
+            "upper": 0.6,
+            "mean_estimate": 0.49315179004283594,
+            "observed_positive_fraction": 0.46534351145038166
+          },
+          {
+            "count": 0,
+            "lower": 0.6,
+            "upper": 0.8,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          },
+          {
+            "count": 0,
+            "lower": 0.8,
+            "upper": 1.0,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          }
+        ],
+        "heuristic_selection": {
+          "count": 629,
+          "mean_net_return": -0.004483441537074562,
+          "worst_net_return": -0.2254672042176118,
+          "positive_fraction": 0.5246422893481717,
+          "worst_adverse_close_return": -0.2254672042176118
+        },
+        "train_prevalence_brier": 0.24925002480032732
+      },
+      "stress_results": {
+        "DEMO_NORMAL": {
+          "auc": 0.5829571244267405,
+          "rows": 3264,
+          "brier": 0.2474303087238573,
+          "log_loss": 0.6882443539013027,
+          "distinct_dates": 408,
+          "model_selection": {
+            "count": 0,
+            "mean_net_return": null,
+            "worst_net_return": null,
+            "positive_fraction": null,
+            "worst_adverse_close_return": null
+          },
+          "reliability_bins": [
+            {
+              "count": 0,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 117,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.34131958104072535,
+              "observed_positive_fraction": 0.5641025641025641
+            },
+            {
+              "count": 3147,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.4949873083989275,
+              "observed_positive_fraction": 0.4680648236415634
+            },
+            {
+              "count": 0,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 0,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            }
+          ],
+          "heuristic_selection": {
+            "count": 511,
+            "mean_net_return": -0.0022384487980834805,
+            "worst_net_return": -0.21468605400671126,
+            "positive_fraction": 0.547945205479452,
+            "worst_adverse_close_return": -0.21468605400671126
+          },
+          "train_prevalence_brier": 0.24937861075170326
+        },
+        "DEMO_COVID_2020": {
+          "auc": 0.42842944478209577,
+          "rows": 752,
+          "brier": 0.28598403813299916,
+          "log_loss": 0.7806885828667313,
+          "distinct_dates": 94,
+          "model_selection": {
+            "count": 0,
+            "mean_net_return": null,
+            "worst_net_return": null,
+            "positive_fraction": null,
+            "worst_adverse_close_return": null
+          },
+          "reliability_bins": [
+            {
+              "count": 44,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": 0.19237245697103508,
+              "observed_positive_fraction": 0.45454545454545453
+            },
+            {
+              "count": 580,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.2717798003539597,
+              "observed_positive_fraction": 0.4586206896551724
+            },
+            {
+              "count": 128,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.44802385045986437,
+              "observed_positive_fraction": 0.3984375
+            },
+            {
+              "count": 0,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 0,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            }
+          ],
+          "heuristic_selection": {
+            "count": 118,
+            "mean_net_return": -0.01420540161863764,
+            "worst_net_return": -0.2254672042176118,
+            "positive_fraction": 0.423728813559322,
+            "worst_adverse_close_return": -0.2254672042176118
+          },
+          "train_prevalence_brier": 0.24869190705393007
+        }
+      }
+    },
+    {
+      "fold": "geopolitical_2022",
+      "metrics": {
+        "auc": 0.6759829397378014,
+        "rows": 3992,
+        "brier": 0.22932690199827274,
+        "log_loss": 0.650184358956913,
+        "distinct_dates": 499,
+        "model_selection": {
+          "count": 0,
+          "mean_net_return": null,
+          "worst_net_return": null,
+          "positive_fraction": null,
+          "worst_adverse_close_return": null
+        },
+        "reliability_bins": [
+          {
+            "count": 258,
+            "lower": 0.0,
+            "upper": 0.2,
+            "mean_estimate": 0.18055028982292123,
+            "observed_positive_fraction": 0.1821705426356589
+          },
+          {
+            "count": 1519,
+            "lower": 0.2,
+            "upper": 0.4,
+            "mean_estimate": 0.27608975648753753,
+            "observed_positive_fraction": 0.3107307439104674
+          },
+          {
+            "count": 2215,
+            "lower": 0.4,
+            "upper": 0.6,
+            "mean_estimate": 0.49212075885541134,
+            "observed_positive_fraction": 0.5720090293453725
+          },
+          {
+            "count": 0,
+            "lower": 0.6,
+            "upper": 0.8,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          },
+          {
+            "count": 0,
+            "lower": 0.8,
+            "upper": 1.0,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          }
+        ],
+        "heuristic_selection": {
+          "count": 520,
+          "mean_net_return": -0.009472677993435551,
+          "worst_net_return": -0.303613227171726,
+          "positive_fraction": 0.5288461538461539,
+          "worst_adverse_close_return": -0.303613227171726
+        },
+        "train_prevalence_brier": 0.24869031644699746
+      },
+      "stress_results": {
+        "DEMO_NORMAL": {
+          "auc": 0.5554873464023953,
+          "rows": 2216,
+          "brier": 0.25242441721573694,
+          "log_loss": 0.6984260713316368,
+          "distinct_dates": 277,
+          "model_selection": {
+            "count": 0,
+            "mean_net_return": null,
+            "worst_net_return": null,
+            "positive_fraction": null,
+            "worst_adverse_close_return": null
+          },
+          "reliability_bins": [
+            {
+              "count": 0,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 88,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.3220014175686607,
+              "observed_positive_fraction": 0.6704545454545454
+            },
+            {
+              "count": 2128,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.4933735674230285,
+              "observed_positive_fraction": 0.5944548872180451
+            },
+            {
+              "count": 0,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 0,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            }
+          ],
+          "heuristic_selection": {
+            "count": 329,
+            "mean_net_return": 0.018735123693587954,
+            "worst_net_return": -0.17460569087235522,
+            "positive_fraction": 0.6747720364741642,
+            "worst_adverse_close_return": -0.17460569087235522
+          },
+          "train_prevalence_brier": 0.2530204788785103
+        },
+        "DEMO_GEOPOLITICAL_2022": {
+          "auc": 0.5017378613269023,
+          "rows": 1776,
+          "brier": 0.2005070294071125,
+          "log_loss": 0.5899908709938564,
+          "distinct_dates": 222,
+          "model_selection": {
+            "count": 0,
+            "mean_net_return": null,
+            "worst_net_return": null,
+            "positive_fraction": null,
+            "worst_adverse_close_return": null
+          },
+          "reliability_bins": [
+            {
+              "count": 258,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": 0.18055028982292123,
+              "observed_positive_fraction": 0.1821705426356589
+            },
+            {
+              "count": 1431,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.27326639787458235,
+              "observed_positive_fraction": 0.2886093640810622
+            },
+            {
+              "count": 87,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.4614773492934643,
+              "observed_positive_fraction": 0.022988505747126436
+            },
+            {
+              "count": 0,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 0,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            }
+          ],
+          "heuristic_selection": {
+            "count": 191,
+            "mean_net_return": -0.0580609856113975,
+            "worst_net_return": -0.303613227171726,
+            "positive_fraction": 0.2774869109947644,
+            "worst_adverse_close_return": -0.303613227171726
+          },
+          "train_prevalence_brier": 0.24328736602569542
+        }
+      }
+    },
+    {
+      "fold": "final_holdout",
+      "metrics": {
+        "auc": 0.5441737780907974,
+        "rows": 4016,
+        "brier": 0.24932824819509702,
+        "log_loss": 0.691784060022956,
+        "distinct_dates": 502,
+        "model_selection": {
+          "count": 19,
+          "mean_net_return": 0.03954050052980059,
+          "worst_net_return": 0.01454925594421619,
+          "positive_fraction": 1.0,
+          "worst_adverse_close_return": -0.05219466980107157
+        },
+        "reliability_bins": [
+          {
+            "count": 0,
+            "lower": 0.0,
+            "upper": 0.2,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          },
+          {
+            "count": 34,
+            "lower": 0.2,
+            "upper": 0.4,
+            "mean_estimate": 0.3896987643834206,
+            "observed_positive_fraction": 0.35294117647058826
+          },
+          {
+            "count": 3963,
+            "lower": 0.4,
+            "upper": 0.6,
+            "mean_estimate": 0.4939542307962168,
+            "observed_positive_fraction": 0.5884430986626293
+          },
+          {
+            "count": 19,
+            "lower": 0.6,
+            "upper": 0.8,
+            "mean_estimate": 0.6101908119810414,
+            "observed_positive_fraction": 1.0
+          },
+          {
+            "count": 0,
+            "lower": 0.8,
+            "upper": 1.0,
+            "mean_estimate": null,
+            "observed_positive_fraction": null
+          }
+        ],
+        "heuristic_selection": {
+          "count": 710,
+          "mean_net_return": 0.017477356195818968,
+          "worst_net_return": -0.12793375132757379,
+          "positive_fraction": 0.6070422535211267,
+          "worst_adverse_close_return": -0.12793375132757379
+        },
+        "train_prevalence_brier": 0.25320581058710934
+      },
+      "stress_results": {
+        "DEMO_NORMAL": {
+          "auc": 0.5441737780907974,
+          "rows": 4016,
+          "brier": 0.24932824819509702,
+          "log_loss": 0.691784060022956,
+          "distinct_dates": 502,
+          "model_selection": {
+            "count": 19,
+            "mean_net_return": 0.03954050052980059,
+            "worst_net_return": 0.01454925594421619,
+            "positive_fraction": 1.0,
+            "worst_adverse_close_return": -0.05219466980107157
+          },
+          "reliability_bins": [
+            {
+              "count": 0,
+              "lower": 0.0,
+              "upper": 0.2,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            },
+            {
+              "count": 34,
+              "lower": 0.2,
+              "upper": 0.4,
+              "mean_estimate": 0.3896987643834206,
+              "observed_positive_fraction": 0.35294117647058826
+            },
+            {
+              "count": 3963,
+              "lower": 0.4,
+              "upper": 0.6,
+              "mean_estimate": 0.4939542307962168,
+              "observed_positive_fraction": 0.5884430986626293
+            },
+            {
+              "count": 19,
+              "lower": 0.6,
+              "upper": 0.8,
+              "mean_estimate": 0.6101908119810414,
+              "observed_positive_fraction": 1.0
+            },
+            {
+              "count": 0,
+              "lower": 0.8,
+              "upper": 1.0,
+              "mean_estimate": null,
+              "observed_positive_fraction": null
+            }
+          ],
+          "heuristic_selection": {
+            "count": 710,
+            "mean_net_return": 0.017477356195818968,
+            "worst_net_return": -0.12793375132757379,
+            "positive_fraction": 0.6070422535211267,
+            "worst_adverse_close_return": -0.12793375132757379
+          },
+          "train_prevalence_brier": 0.25320581058710934
+        }
+      }
+    }
+  ]
+}
