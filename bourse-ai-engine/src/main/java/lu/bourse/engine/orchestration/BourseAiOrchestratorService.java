@@ -1,5 +1,6 @@
 package lu.bourse.engine.orchestration;
 
+import lu.bourse.engine.persistence.SqlIds;
 import lu.bourse.engine.service.DataQualityService;
 import lu.bourse.engine.service.IntelligentScoringService;
 import lu.bourse.engine.service.MarketRegimeService;
@@ -84,7 +85,7 @@ public class BourseAiOrchestratorService {
                 """);
             for (var row : latest) {
                 long assetId = ((Number) row.get("asset_id")).longValue();
-                Timestamp candleTime = (Timestamp) row.get("candle_time");
+                Timestamp candleTime = Timestamp.from(SqlIds.instant(row.get("candle_time")));
                 int existing = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM orchestration_assessments WHERE asset_id=? AND candle_time=?",
                     Integer.class, assetId, candleTime);
@@ -124,7 +125,7 @@ public class BourseAiOrchestratorService {
                 WHERE id=?
                 """,count,Timestamp.from(now),Timestamp.from(now.plus(LEASE)),Timestamp.from(now),id);
             return new Claimed(id, ((Number)row.get("asset_id")).longValue(),
-                (String)row.get("symbol"), ((Timestamp)row.get("candle_time")).toInstant(), count);
+                (String)row.get("symbol"), SqlIds.instant(row.get("candle_time")), count);
         });
     }
 
