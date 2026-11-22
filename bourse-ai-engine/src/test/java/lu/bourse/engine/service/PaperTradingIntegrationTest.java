@@ -36,6 +36,11 @@ class PaperTradingIntegrationTest extends DatabaseIntegrationSupport {
    assertThat(first.simulatedFee()).isEqualByComparingTo("0.2");
    assertThat(paper.execute(new PaperTradingService.Order(accountId,"buy-1",symbol,"BUY",new BigDecimal("2"))).id())
     .isEqualTo(first.id());
+   // A reused idempotency key with a different quantity is a conflict, never a replay.
+   final long sameAccount=accountId;
+   assertThatThrownBy(()->paper.execute(new PaperTradingService.Order(
+    sameAccount,"buy-1",symbol,"BUY",new BigDecimal("3"))))
+    .isInstanceOf(ResponseStatusException.class);
    assertThat(paper.history(accountId,10)).hasSize(1);
    assertThat(paper.account(accountId).cashBalance()).isEqualByComparingTo("799.8");
    var before=paper.snapshot(accountId);
