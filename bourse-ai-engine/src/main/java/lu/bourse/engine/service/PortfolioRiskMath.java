@@ -9,6 +9,15 @@ public final class PortfolioRiskMath {
  public record Point(LocalDate date,double value){}
  public record Measures(double annualVolatilityPct,double maxDrawdownPct,double historical95OneDayLossPct,
   int commonDates,double largestWeightPct,double concentrationHhi){}
+ /**
+  * Mesure un panier fictif à quantités constantes et devise identique.
+  * Les séries sont jointes par dates UTC communes, sans interpolation des dates manquantes.
+  * La valeur V(t) = somme(q_i * prix_i(t)).
+  * Les poids sont ceux de la dernière date, HHI = somme(poids_i^2).
+  * Volatilité = écart-type des log-rendements de V(t) * sqrt(252).
+  * Drawdown = plus forte baisse depuis un précédent sommet de V.
+  * Le quantile empirique 95% des pertes sur 60 rendements n'est PAS une garantie de VaR.
+  */
  public static Measures measure(List<List<Point>> series,double[] quantities){
   if(series==null||quantities==null||series.size()==0||series.size()!=quantities.length||
      series.size()>10)throw new IllegalArgumentException("Invalid holdings");
