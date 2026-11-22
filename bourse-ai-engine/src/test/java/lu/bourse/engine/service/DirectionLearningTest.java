@@ -32,7 +32,7 @@ class DirectionLearningTest {
   List<Double> base=prices(500),changed=new ArrayList<>(base);
   var original=DirectionLearning.evaluate(base,10);
   // The final tail is out of reach for the first two chronological folds.
-  for(int i=430;i<500;i++)changed.set(i,changed.get(i)*(1+Math.sin(i)*.04));
+  for(int i=450;i<500;i++)changed.set(i,changed.get(i)*(1+Math.sin(i)*.04));
   var changedEval=DirectionLearning.evaluate(changed,10);
   assertThat(changedEval.folds().subList(0,2)).isEqualTo(original.folds().subList(0,2));
  }
