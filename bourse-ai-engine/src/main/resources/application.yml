@@ -45,6 +45,7 @@ market:
     base-url: https://api.gdeltproject.org
   sec:
     base-url: https://data.sec.gov
+    archives-base-url: https://www.sec.gov
     user-agent: ${SEC_USER_AGENT:}
   fmp:
     base-url: https://financialmodelingprep.com
