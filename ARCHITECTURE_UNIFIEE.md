@@ -88,7 +88,7 @@ Dans le dépôt racine :
 ```bash
 cp .env.example .env
 # renseigner DB_PASSWORD
-./start.sh
+bash start.sh
 ```
 
 Sous Windows PowerShell :
