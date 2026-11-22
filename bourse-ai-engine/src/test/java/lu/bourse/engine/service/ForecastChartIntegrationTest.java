@@ -63,15 +63,30 @@ class ForecastChartIntegrationTest extends DatabaseIntegrationSupport {
     assertThat(p.absoluteErrorPct()).isNull();
     assertThat(p.observedAt()).isNull();
    });
+   // Stored model runs and settled forecasts are plotted from persisted evidence only.
+   Instant observed=now.minus(Duration.ofDays(1));
+   jdbc.update("UPDATE prediction_records SET status='EVALUATED',realized_time=?,realized_price=?,signed_error_pct=0,absolute_error_pct=0,direction_correct=TRUE WHERE asset_id=?",
+    Timestamp.from(observed),pending,id);
+   var settled=charts.predictionErrors(symbol,10).points().get(0);
+   assertThat(settled.realizedPrice()).isEqualByComparingTo(pending);
+   assertThat(settled.absoluteErrorPct()).isEqualByComparingTo("0");
+   jdbc.update("INSERT INTO ml_training_runs(asset_id,algorithm,version,horizon_sessions,feature_spec,train_samples,test_samples,training_cutoff,last_test_time,direction_accuracy,baseline_accuracy,brier_score,baseline_brier,status,notes) VALUES (?, 'LOGISTIC_L2_GRADIENT_DESCENT','v1',10,'price',200,50,?,?,0.61,0.50,0.20,0.25,'RESEARCH_ONLY','fixture')",
+    id,Timestamp.from(now.minus(Duration.ofDays(30))),Timestamp.from(observed));
+   var experiments=charts.mlExperiments(symbol,10);
+   assertThat(experiments.points()).singleElement().satisfies(p->{
+    assertThat(p.directionAccuracyPct()).isEqualTo(61.0);
+    assertThat(p.baselineAccuracyPct()).isEqualTo(50.0);
+    assertThat(p.brierScore()).isEqualTo(.2);
+   });
    mvc.perform(get("/api/v1/charts/"+symbol+"/history").param("limit","30"))
     .andExpect(status().isOk()).andExpect(jsonPath("$.points.length()").value(30));
    mvc.perform(get("/api/v1/charts/"+symbol+"/scenarios"))
     .andExpect(status().isOk()).andExpect(jsonPath("$.points.length()").value(4));
    mvc.perform(get("/api/v1/charts/"+symbol+"/predictions"))
-    .andExpect(status().isOk()).andExpect(jsonPath("$.points[0].status").value("PENDING"))
-    .andExpect(jsonPath("$.points[0].realizedPrice").doesNotExist());
+    .andExpect(status().isOk()).andExpect(jsonPath("$.points[0].status").value("EVALUATED"))
+    .andExpect(jsonPath("$.points[0].realizedPrice").isNumber());
    mvc.perform(get("/api/v1/charts/"+symbol+"/ml"))
-    .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(0));
+    .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(1));
    mvc.perform(get("/api/v1/charts/"+symbol+"/history").param("limit","1001"))
     .andExpect(status().isBadRequest());
    mvc.perform(get("/api/v1/charts/"+symbol+"/predictions").param("limit","201"))
