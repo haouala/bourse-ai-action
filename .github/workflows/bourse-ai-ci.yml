@@ -1,0 +1,35 @@
+name: Bourse AI Java CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/data-quality-historical-backtesting
+    paths:
+      - 'bourse-ai-engine/**'
+      - '.github/workflows/bourse-ai-ci.yml'
+  pull_request:
+    paths:
+      - 'bourse-ai-engine/**'
+      - '.github/workflows/bourse-ai-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bourse-ai-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: bourse-ai-engine/pom.xml
+      - name: Run tests
+        run: mvn -B -ntp clean verify
