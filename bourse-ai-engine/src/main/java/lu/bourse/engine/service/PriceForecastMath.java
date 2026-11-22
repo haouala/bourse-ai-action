@@ -74,7 +74,7 @@ public final class PriceForecastMath {
  static double quantile(List<Double> sorted,double probability){
   double pos=(sorted.size()-1)*probability;
   int lower=(int)Math.floor(pos),upper=(int)Math.ceil(pos);
-  return sorted.get(lower)*(upper-pos)+sorted.get(upper)*(pos-lower==0?0:pos-lower);
+  return sorted.get(lower)+(sorted.get(upper)-sorted.get(lower))*(pos-lower);
  }
  static double round(double value){return Math.round(value*10000.0)/10000.0;}
 }
