@@ -20,6 +20,14 @@ public final class PriceForecastMath {
                         double lowReturn,double medianReturn,double highReturn,Validation validation){}
  private record Outcome(int startIndex,int endIndex,double logReturn){}
 
+ /**
+  * Génère trois scénarios à partir des quantiles 10/50/90% de rendements logarithmiques.
+  * Le découpage est chronologique : un exemple d'entraînement est conservé uniquement si
+  * son résultat réel est connu avant le début du holdout. Le 70% final est réservé aux tests.
+  * Chaque horizon est exprimé en jours calendaires, non en séances de marché.
+  * Les erreurs médianes sont calculées sur les observations hors entraînement.
+  * Attention : un quantile historique n'est pas un intervalle prédictif calibré.
+  */
  public static Estimate estimate(List<Close> prices,int horizonDays){
   if(prices==null||prices.size()<250||prices.size()>10000||!HORIZONS.contains(horizonDays))
    throw new IllegalArgumentException("Need 250..10000 prices and horizon 7/30/90/180");
