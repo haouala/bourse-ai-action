@@ -17,7 +17,7 @@ import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
 
 @Composable
-fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: () -> Unit) {
+fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: () -> Unit, research: () -> Unit = {}) {
     var timeframe by rememberSaveable { mutableStateOf("15m") }
     var table by rememberSaveable { mutableStateOf(false) }
     val config by store.config.collectAsStateWithLifecycle()
@@ -50,6 +50,7 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                 if (table) chart.candles.takeLast(12).forEach { KeyValue(dateLabel(it.opensAt.toString()), "O ${priceText(it.open)} · H ${priceText(it.high)} · B ${priceText(it.low)} · C ${priceText(it.close)} ${chart.currency}") }
             }
         }
+        Button(onClick = research, modifier = Modifier.fillMaxWidth()) { Text("Intelligence : prévisions, graphiques, ML et risque") }
         Button(onClick = explain, modifier = Modifier.fillMaxWidth()) { Text("Comprendre le score") }
         OutlinedButton(onClick = calendar, modifier = Modifier.fillMaxWidth()) { Text("Calendrier et données attendues") }
         TextButton(onClick = { refresh() }) { Text("Actualiser l’historique") }
