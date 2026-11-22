@@ -21,7 +21,7 @@ public class DataQualityService {
  private record Bar(Instant time,BigDecimal open,BigDecimal high,BigDecimal low,BigDecimal close,BigDecimal volume,String provider) {}
  private record Observation(Instant time,BigDecimal close,String provider,String currency,String adjustment) {}
  public Report check(String rawSymbol,String timeframe) {
-  if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}") || !Set.of("1d","1h","1m").contains(timeframe))
+  if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}") || !Set.of("15m","30m","1h","1d","1m").contains(timeframe))
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol/timeframe");
   String symbol=rawSymbol.toUpperCase(Locale.ROOT);
   List<String> currencies=jdbc.query("SELECT currency FROM assets WHERE symbol=?", (r,i)->r.getString(1),symbol);
