@@ -85,12 +85,22 @@ public class ResearchAlertsService {
     default->value.compareTo(r.threshold())<=0;
    };
    if(!match)continue;
+   // Serialize checks of the same rule across parallel workers to prevent duplicate inserts.
+   jdbc.queryForObject("SELECT id FROM research_alert_rules WHERE id=? FOR UPDATE",Long.class,r.id());
    int exists=jdbc.queryForObject("SELECT COUNT(*) FROM research_alert_events WHERE rule_id=? AND observation_time=?",
     Integer.class,r.id(),Timestamp.from(when));
    if(exists>0)continue;
-   jdbc.update("INSERT INTO research_alert_events(rule_id,observed_value,observation_time) VALUES (?,?,?)",
-    r.id(),value,Timestamp.from(when));
-   events.add(new Event(0,r.id(),value,when));
+   GeneratedKeyHolder key=new GeneratedKeyHolder();
+   final BigDecimal captured=value;
+   final Instant capturedTime=when;
+   jdbc.update(conn->{
+    PreparedStatement ps=conn.prepareStatement(
+     "INSERT INTO research_alert_events(rule_id,observed_value,observation_time) VALUES (?,?,?)",
+     new String[]{"id"});
+    ps.setLong(1,r.id());ps.setBigDecimal(2,captured);ps.setTimestamp(3,Timestamp.from(capturedTime));
+    return ps;
+   },key);
+   events.add(new Event(key.getKey().longValue(),r.id(),value,when));
   }
   return new Check(enabled.size(),events.size(),List.copyOf(events),
    "Local persisted events only; no email, phone or push delivery implemented");
