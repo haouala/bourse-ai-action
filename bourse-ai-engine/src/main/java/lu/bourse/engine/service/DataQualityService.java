@@ -43,13 +43,13 @@ public class DataQualityService {
       b.low().compareTo(b.open())>0||b.low().compareTo(b.close())>0||b.volume().signum()<0)
      issues.add(new Issue("INVALID_OHLCV","BLOCK",b.time(),"Impossible price or negative volume"));
    if(previous!=null && !b.time().isAfter(previous))issues.add(new Issue("NON_MONOTONIC_TIME","BLOCK",b.time(),"Duplicate or disordered candles"));
-   if(previousClose!=null && previousClose.signum()>0) {
+   if(timeframe.equals("1d") && previousClose!=null && previousClose.signum()>0) {
     BigDecimal move=b.close().subtract(previousClose).abs().divide(previousClose,6,RoundingMode.HALF_UP);
     if(move.compareTo(new BigDecimal("0.40"))>0)issues.add(new Issue("EXTREME_DAILY_MOVE","WARN",b.time(),"Unadjusted move > 40%; verify splits/corporate actions"));
    }
    for(Observation o:byTime.getOrDefault(b.time(),List.of())) {
     if(!currency.equals(o.currency())){issues.add(new Issue("CURRENCY_MISMATCH","BLOCK",b.time(),o.provider()+" currency differs"));continue;}
-    if(!"UNSPECIFIED".equalsIgnoreCase(o.adjustment())){issues.add(new Issue("ADJUSTMENT_UNKNOWN_COMPARABILITY","WARN",b.time(),o.provider()+" adjustment needs harmonization"));continue;}
+    if(o.adjustment()==null || !"UNSPECIFIED".equalsIgnoreCase(o.adjustment())){issues.add(new Issue("ADJUSTMENT_UNKNOWN_COMPARABILITY","WARN",b.time(),o.provider()+" adjustment needs harmonization"));continue;}
     if(o.provider().equalsIgnoreCase(b.provider()))continue; // independent corroboration only
     matches++;
     if(b.close().signum()>0 && o.close().subtract(b.close()).abs().divide(b.close(),6,RoundingMode.HALF_UP).compareTo(new BigDecimal("0.02"))>0)
