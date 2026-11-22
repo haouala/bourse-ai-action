@@ -1,57 +1,77 @@
-# Informations et podcasts avec IA
+# Bourse AI — Architecture unifiée (release candidate)
 
-Le module [bourse-ai-information](bourse-ai-information/README.md) ajoute la collecte horaire, l'extraction d'articles, les transcriptions de podcasts et un worker OpenAI séparé. Java conserve la file et les résultats dans PostgreSQL ; le worker utilise son API interne authentifiée. Les résumés originaux sont conservés et l'IA ajoute un résumé explicatif avec preuves. Les appels payants sont désactivés par défaut.
+**Un seul dépôt :** backend Java 21 / Spring Boot 3, base PostgreSQL 17 persistante, collecte de marché, actualités/podcasts et worker Python, laboratoire ML Python, application Android Kotlin/Jetpack Compose et application Java de démonstration hors ligne.
 
-Les propositions restent à approuver avant contribution au score expérimental. L'attention médiatique est distincte du sens et les répétitions d'un événement ne multiplient pas ses points. Le guide contient les clés et budgets à configurer, les commandes PowerShell/Linux, les routes et les tests sans clé. Livraison par petits commits sur `feature/information-ai-hourly`, PR 4 ; aucune fusion automatique dans main.
+> **Statut :** développement expérimental. Pas de garantie de rendement, de connexion à un broker ni de système d'exécution automatique. Les APIs doivent rester sur l'ordinateur local tant qu'une authentification par utilisateur n'est pas en place.
 
-Le batch ML accepte maintenant `demo --feature-set PRICE_ONLY` pour apprendre sans composantes informationnelles ou fondamentales. Cette option reste une démonstration synthétique : elle n'importe pas encore les historiques métier réels.
+## Cloner, configurer et démarrer
 
-# Bourse AI
+Pré-requis : **JDK 21, Maven 3.9+, Docker avec Compose**. L'application démarre sans clés payantes : les collectes sont désactivées par défaut.
 
-## Batch Python de démonstration
+```bash
+git clone https://github.com/haouala/bourse-ai-action.git
+cd bourse-ai-action
+cp .env.example .env
+# Ouvrir .env et renseigner DB_PASSWORD
+./start.sh
+```
 
-Le module [bourse-ai-ml](bourse-ai-ml/README.md) tourne séparément de Java, sur la même base **PostgreSQL**, dans son schéma `bourse_ml`. Il génère des données fictives, apprend des coefficients avec validation chronologique, enregistre des modèles candidats et exporte ses rapports. Aucun token fournisseur ou IA n'est requis ; les poids actifs et la limite de perte ne sont pas modifiés.
+Sous Windows PowerShell :
 
-Branche : `feature/ml-batch-demo`, basée sur le backend V8. La base H2 par défaut n'est pas partagée. Voir le guide pour les commandes PowerShell/Linux, les variables PG*, les six tables et les limites des données synthétiques.
+```powershell
+git clone https://github.com/haouala/bourse-ai-action.git
+cd bourse-ai-action
+Copy-Item .env.example .env
+notepad .env
+.\start.ps1
+```
 
-Backend Java 21 / Spring Boot dans `bourse-ai-engine`.
+**Pendant la phase d'intégration**, ces instructions s'appliquent à la branche `integration/unified-bourse-ai`. Après la fusion validée, elles fonctionneront directement sur `main`. Pour l'essayer avant fusion : `git switch integration/unified-bourse-ai`.
 
-Voir [la configuration et les quotas](bourse-ai-engine/CONFIGURATION.md) pour le lancement, les clés privées, PostgreSQL et les tests.
+Le script démarre PostgreSQL 17 sur `127.0.0.1:5434` avec un **volume Docker persistant**, puis Spring Boot avec le profil `postgres` sur `127.0.0.1:8081`. **Ne pas supprimer le volume** lorsque le mot de passe diffère : modifier la configuration ou restaurer les identifiants utilisés à la création.
+
+Vérifier : `http://127.0.0.1:8081/actuator/health` (attendu : `UP`).
+
+Pour arrêter : `Ctrl+C` pour Maven puis, si nécessaire, `docker compose --env-file .env -f bourse-ai-engine/docker-compose.yml stop`. La base reste intacte.
+
+## Tester et développer
 
 ```bash
 cd bourse-ai-engine
-mvn clean verify
-mvn spring-boot:run
+mvn -B -ntp clean verify
 ```
 
-Port par défaut : 8081. Sans profil `postgres`, la base H2 est volatile ; utiliser PostgreSQL pour conserver les données et les compteurs entre redémarrages.
+Tests worker sans API payante :
+```bash
+PYTHONPATH=bourse-ai-information/src python -m unittest discover -s bourse-ai-information/tests -v
+```
 
-## Modules backend disponibles en développement
+Le batch ML Python exige Python 3.12 et ses dépendances `bourse-ai-ml/requirements.lock`; voir [son guide](bourse-ai-ml/README.md). Les tests GitHub Actions vérifient la base Java, PostgreSQL, les workers et les deux projets Android sur la branche d'intégration.
 
-- [Architecture, code et exemples d’API](bourse-ai-engine/docs/ARCHITECTURE.md)
-- [Schémas et dictionnaire de la base de données](bourse-ai-engine/docs/DATABASE.md)
-- [Résultats des tests et de l’essai après redémarrage](bourse-ai-engine/docs/VALIDATION.md)
-- [Publications sociales, influence par sujet et scores par actif](bourse-ai-engine/docs/SOCIAL_SIGNALS.md)
-- [Guide local complet sans token puis avec services facultatifs](bourse-ai-engine/docs/BACKEND_LOCAL.md)
+## Modules et applications
 
-Branche de livraison : `feature/portfolio-timeframes-alerts`, [PR 1](https://github.com/haouala/bourse-ai-action/pull/1). Les changements ne sont pas encore fusionnés dans `main`. Depuis une copie existante, récupérer cette branche avec `git fetch origin`, puis `git switch feature/portfolio-timeframes-alerts` ; conserver les éventuelles modifications locales avant de changer de branche.
+| Emplacement | Rôle |
+| --- | --- |
+| `bourse-ai-engine/` | APIs REST, qualité, backtest, données, scoring, prévisions, risque, registres de décisions, alertes |
+| `bourse-ai-information/` | Worker Python : articles, transcriptions, analyse OpenAI, preuves |
+| `bourse-ai-ml/` | Laboratoire ML Python avec jeu d'essai synthétique ; non promu en trading |
+| `bourse-ai-android/` | **Application principale Android Kotlin/Compose**, mode démo et transport backend |
+| `android-demo/` | **Autre APK Java de démonstration**, entièrement hors ligne |
 
-| Fonction | Comportement livré |
-|---|---|
-| Marché et positions | Liste configurable de 100 actions et 30 cryptos ; 15m/30m/1h/1d ; achats/ventes déclarés, frais, FX et limite de perte globale |
-| Calendriers | Séances régulières US 2026–2028, import d'autres calendriers, fuseaux, fériés, clôtures anticipées, états inconnus et suspensions déclarées |
-| Qualité des prix | Dernière bougie attendue, marge de livraison, clôture et ouverture en estimation explicite ; horodatage FX distinct |
-| Saisonnière | Statistiques **mensuelles, trimestrielles et annuelles** sur les cours quotidiens ; pas d'analyse horaire ou par jour de semaine |
-| Informations | 14 flux publics RSS/Atom dont deux podcasts ; sources politiques, économiques et internationaux ; versions, dates, reprises, mentions et citations validées manuellement |
-| Personnalités | Influence par sujet et date ; impact/confidence par actif ; collecte X facultative et plafonnée |
-| Explication | Règles MACD/RSI, variation de marge nette et événements ; contributions, sources et snapshots pour DAY/MONTH/YEAR |
-| Correction des règles | Versions immuables et comparaison des points entre deux analyses ; aucune réécriture de l'historique |
+Les nouvelles fonctionnalités Java ne sont pas toutes reliées aux écrans Kotlin existants. **Ne pas confondre une APK démo compilée avec une application opérationnelle sur données réelles.**
 
-Pour un premier essai sans compte fournisseur : lancer l'application, puis `python3 scripts/local_backend_smoke.py` depuis `bourse-ai-engine`. Ce script utilise exclusivement des données fictives et ne collecte aucune source réelle.
+## Configuration et sécurité
 
-Les ordonnanceurs sont **désactivés par défaut**. RSS, calendriers, statistiques et explications ne nécessitent aucun token. Twelve Data et X nécessitent une clé uniquement si leurs appels sont volontairement activés ; les étapes sont dans le guide local et `.env.example`.
+- `.env` (privé, ignoré par Git) contient la base et, optionnellement, les clés de fournisseurs ; `.env.example` ne contient aucun secret.
+- L'adresse d'écoute du serveur est **127.0.0.1 par défaut**. Ne mettre `SERVER_BIND_ADDRESS=0.0.0.0` qu'après sécurisation de l'API, y compris l'authentification et les droits par utilisateur.
+- Les APIs de collecte externe et les traitements d'informations payants restent désactivés par défaut.
+- Activer d'abord les sources pertinentes, vérifier leurs licences, quotas et clés. Les abonnements IA sont différents des clés de l'API OpenAI.
+- Les simulations de trading ne passent **aucun** ordre chez eToro ou un autre courtier.
 
-Les scores sont expérimentaux et explicables, pas des probabilités de gain. La saisonnalité reste descriptive avec zéro point avant validation indépendante. Le worker OpenAI produit des propositions structurées ; l'approbation et la vérification de l'identité des locuteurs restent distinctes et traçables. Cette livraison backend ne modifie pas Android ni le push. Les backtests financiers indépendants et la validation du fournisseur payant restent à réaliser. Les API de développement doivent rester privées jusqu'à l'ajout de l'authentification.
+## Architecture et commentaires de calcul
 
-Le suivi des développements est actualisé dans le document d'analyse version 1.2 du 20 novembre 2026, livré séparément en Word et PDF.
+Lire [ARCHITECTURE_UNIFIEE.md](ARCHITECTURE_UNIFIEE.md) pour les flux Java/Python/Android, la gestion des données, les versions Flyway **V1–V18**, les formules de volatilité, drawdown, score, backtest et prédictions. Les services de calcul portent des commentaires décrivant les hypothèses et limites.
 
+Pour les détails des quotas et fournisseurs : [CONFIGURATION.md](bourse-ai-engine/CONFIGURATION.md).
+
+**Avant une utilisation sur des comptes réels :** authentification et isolation des portefeuilles, contrôle des frais/FX et données réelles, validation hors échantillon, intégration Android, tests complets et analyse de sécurité.
