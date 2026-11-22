@@ -35,17 +35,12 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - name: Install Android SDK components
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Checkout isolated V8 backend
-        uses: actions/checkout@v4
-        with:
-          repository: haouala/bourse-ai-action
-          ref: 856c5e538968515626fe370c1c1179b0ccba8875
-          path: backend-contract
-          persist-credentials: false
-      - name: Build isolated V8 backend
-        run: mvn -q -f ../backend-contract/bourse-ai-engine/pom.xml -DskipTests package
-      - name: Build and validate against disposable backend
-        run: python3 scripts/run_with_backend.py --jar ../backend-contract/bourse-ai-engine/target/bourse-ai-engine-0.1.0-SNAPSHOT.jar
+      # Important: verify the mobile contract against the SAME source revision being shipped.
+      # Do not check out a historical backend SHA which would hide integration regressions.
+      - name: Build current unified backend
+        run: mvn -q -f ../bourse-ai-engine/pom.xml -DskipTests package
+      - name: Build and validate against current disposable backend
+        run: python3 scripts/run_with_backend.py --jar ../bourse-ai-engine/target/bourse-ai-engine-0.1.0-SNAPSHOT.jar
       - name: Record validation and screenshot inventory
         run: python3 scripts/record_validation.py
       - name: Verify APK signature and record checksum
