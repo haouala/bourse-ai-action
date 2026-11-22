@@ -15,8 +15,10 @@ Get-Content '.env' | ForEach-Object {
 if (-not $env:DB_PASSWORD -or $env:DB_PASSWORD -eq 'CHOOSE_A_STRONG_PASSWORD') {
     throw 'Choose a real DB_PASSWORD in .env.'
 }
-docker compose --env-file "$PSScriptRoot/.env" -f "$PSScriptRoot/bourse-ai-engine/docker-compose.yml" up -d postgres
-if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL failed to start.' }
+if ($env:START_POSTGRES -ne 'false') {
+    docker compose --env-file "$PSScriptRoot/.env" -f "$PSScriptRoot/bourse-ai-engine/docker-compose.yml" up -d --wait postgres
+    if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL failed to start.' }
+}
 Set-Location "$PSScriptRoot/bourse-ai-engine"
 mvn -B -ntp '-Dspring-boot.run.profiles=postgres' spring-boot:run
 if ($LASTEXITCODE -ne 0) { throw 'Backend failed to start. Review Flyway and DB logs.' }
