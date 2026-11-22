@@ -72,7 +72,7 @@ public class InsiderFilingService {
     Document doc=fetchXml(url);
     Element root=doc.getDocumentElement();
     if(root==null||!root.getTagName().equals("ownershipDocument")){skipped++;continue;}
-    if(!text(root,"issuerCik").equals(String.valueOf(cik))){skipped++;continue;}
+    if(!text(root,"issuerCik").replaceFirst("^0+(?!$)","").equals(String.valueOf(cik))){skipped++;continue;}
     List<Owner> owners=owners(root);
     if(owners.isEmpty()){skipped++;continue;}
     NodeList transactions=root.getElementsByTagName("nonDerivativeTransaction");
