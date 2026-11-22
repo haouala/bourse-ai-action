@@ -45,4 +45,27 @@ class QualityBacktestIntegrationTest extends DatabaseIntegrationSupport {
    jdbc.update("DELETE FROM assets WHERE id=?",id);
   }
  }
+ @Test void laterPriceChangesCannotRewriteEarlierEquityPoints(){
+  String symbol="BTNOLOOKAHEAD";
+  jdbc.update("INSERT INTO assets(symbol,name,asset_type,currency) VALUES (?,?,?,?)",symbol,"Backtest prefix fixture","STOCK","USD");
+  Long id=jdbc.queryForObject("SELECT id FROM assets WHERE symbol=?",Long.class,symbol);
+  try {
+   for(int i=0;i<45;i++){
+    Instant date=Instant.now().minus(50-i,ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS);
+    BigDecimal close=BigDecimal.valueOf(100+i);
+    jdbc.update("INSERT INTO market_candles(asset_id,timeframe,open_time,open_price,high_price,low_price,close_price,volume,provider) VALUES (?,'1d',?,?,?,?,?,1000,'PRIMARY')",
+     id,Timestamp.from(date),close,close.add(BigDecimal.TEN),close.subtract(BigDecimal.TEN),close);
+   }
+   var before=backtest.run(symbol,5,20,10);
+   // Modify the final candle only. Any past result must remain identical.
+   jdbc.update("UPDATE market_candles SET close_price=150,high_price=160 WHERE asset_id=? AND open_time=(SELECT MAX(open_time) FROM market_candles WHERE asset_id=?)",id,id);
+   var after=backtest.run(symbol,5,20,10);
+   assertThat(after.curve().subList(0,44)).isEqualTo(before.curve().subList(0,44));
+   assertThat(after.curve().get(44).equity()).isNotEqualTo(before.curve().get(44).equity());
+  } finally {
+   jdbc.update("DELETE FROM market_candles WHERE asset_id=?",id);
+   jdbc.update("DELETE FROM assets WHERE id=?",id);
+  }
+ }
+
 }
