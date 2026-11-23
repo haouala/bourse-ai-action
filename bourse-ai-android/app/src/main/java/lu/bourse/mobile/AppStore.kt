@@ -69,13 +69,13 @@ class AppStore(private val storage: ConfigStorage, private val factory: (Connect
         }
     }
     /** No automatic retry: writes are explicit and stable request IDs are supplied by forms. */
-    fun mutate(key: String, path: List<String>, body: JsonObject? = null, method: String = "POST", onSuccess: (JsonElement) -> Unit = {}) {
+    fun mutate(key: String, path: List<String>, body: JsonObject? = null, method: String = "POST", query: Map<String, String> = emptyMap(), onSuccess: (JsonElement) -> Unit = {}) {
         if (jobs[key]?.isActive == true) return
         val epoch = generation; val source = transport
         _resources.update { it + (key to Resource(loading = true)) }
         jobs[key] = viewModelScope.launch {
             try {
-                val result = source.request(method, path, body = body)
+                val result = source.request(method, path, query = query, body = body)
                 if (epoch == generation) { _resources.update { it + (key to Resource(value = result)) }; notifyMutationSuccess(result); onSuccess(result) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { if (epoch == generation) { _resources.update { it + (key to Resource(error = e.message ?: "Opération refusée")) }; notifyFailure(e) } }
