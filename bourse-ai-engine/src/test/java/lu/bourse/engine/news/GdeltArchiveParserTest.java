@@ -32,13 +32,17 @@ class GdeltArchiveParserTest {
     @Test void gkgParsesCompanyOrganizationsWithoutInventingOriginalHeadlines() throws Exception {
         String[] columns=new String[27];
         java.util.Arrays.fill(columns,"");
-        columns[0]="20261122120000";
-        columns[3]="https://example.org/technology";
-        columns[12]="NVIDIA;Some Other Company";
+        columns[0]="20261122120000-123";
+        columns[1]="20261122120000";
+        columns[3]="example.org";
+        columns[4]="https://example.org/technology";
+        columns[12]="Unrelated Persons";
+        columns[13]="NVIDIA;Some Other Company";
         byte[] zip=zip("sample.gkg.csv",String.join("\t",columns)+"\n");
         var result=parser.gkg(new ByteArrayInputStream(zip),Map.of("NVDA","NVIDIA"));
         assertThat(result.articles()).hasSize(1);
         assertThat(result.articles().getFirst().title()).contains("titre non fourni");
+        assertThat(result.articles().getFirst().url()).isEqualTo("https://example.org/technology");
         assertThat(result.articles().getFirst().publishedAt()).isEqualTo(Instant.parse("2026-11-22T12:00:00Z"));
     }
 

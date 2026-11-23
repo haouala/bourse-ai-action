@@ -91,10 +91,11 @@ public final class GdeltArchiveParser {
                 if(++examined>MAX_ROWS || line.length()>MAX_LINE)throw new IOException("ARCHIVE_LIMIT");
                 String[] cols=line.split("\\t",-1);
                 if(cols.length<15)continue;
-                String url=cols[3];
+                // Official GKG 2.1: DATE=1, DocumentIdentifier=4, Organizations=13, V2Organizations=14.
+                String url=cols[4];
                 if(!safeUrl(url))continue;
-                String organizations=cols[12]+";"+cols[13];
-                Instant date=parseGkgDate(cols[0]);
+                String organizations=cols[13]+";"+cols[14];
+                Instant date=parseGkgDate(cols[1]);
                 for(Company c:companies)if(c.name().matcher(organizations).find()) {
                     if(++found>MAX_MATCHES)throw new IOException("MATCH_LIMIT");
                     if(unique.add(c.symbol()+"|"+url)) {
