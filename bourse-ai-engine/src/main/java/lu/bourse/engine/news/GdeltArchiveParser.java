@@ -110,7 +110,7 @@ public final class GdeltArchiveParser {
 
     /** Hard byte bound after decompression; row-count bounds alone cannot stop zip bombs. */
     private static final class InflatedLimit extends FilterInputStream {
-        private long remaining=90_000_000;
+        private long remaining=240_000_000;
         InflatedLimit(InputStream source){super(source);}
         @Override public int read()throws IOException {
             if(remaining==0)throw new IOException("DECOMPRESSED_LIMIT");
