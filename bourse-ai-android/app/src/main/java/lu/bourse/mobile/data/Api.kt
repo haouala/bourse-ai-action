@@ -29,7 +29,7 @@ fun serverFailure(status: Int, body: String?): ApiFailure {
     val details = runCatching { JsonParser.parseString(body.orEmpty()).asJsonObject }.getOrNull()
     val code = details?.get("code")?.takeIf { it.isJsonPrimitive }?.asString
         ?.takeIf { it.matches(Regex("[A-Z0-9_]{3,64}")) }
-    val message = if (code != null) details.get("message")?.takeIf { it.isJsonPrimitive }?.asString
+    val message = if (code != null) details?.get("message")?.takeIf { it.isJsonPrimitive }?.asString
         ?.takeIf { it.length in 8..240 && !it.contains('\\n') } else null
     val severity = if (code != null && details?.get("severity")?.asString == "WARNING") "WARNING"
         else if (status == 429 || status == 502 || status == 503 || status == 504) "WARNING" else "ERROR"
