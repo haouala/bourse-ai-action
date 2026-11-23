@@ -30,7 +30,7 @@ public class NewsCollectionController {
         if(limit<1||limit>200)throw new org.springframework.web.server.ResponseStatusException(
             org.springframework.http.HttpStatus.BAD_REQUEST,"limit must be 1..200");
         return db.queryForList("""
-            SELECT a.symbol,n.title,n.url,n.source,n.published_time,n.created_time
+            SELECT a.symbol,n.title,n.url,n.source,n.published_time
             FROM market_news n JOIN assets a ON a.id=n.asset_id
             WHERE n.source IN ('GDELT_NGRAMS','GDELT_GKG')
             ORDER BY n.id DESC LIMIT ?
