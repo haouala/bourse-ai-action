@@ -1,3 +1,9 @@
+logging:
+  pattern:
+    level: "%5p [req:%X{requestId:-none}]"
+  level:
+    lu.bourse.engine.news: ${NEWS_LOG_LEVEL:INFO}
+
 server:
   port: ${SERVER_PORT:8081}
   # Bind to loopback by default until user authorization is implemented and tested.
