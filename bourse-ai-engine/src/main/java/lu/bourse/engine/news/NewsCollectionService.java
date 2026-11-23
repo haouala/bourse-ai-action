@@ -120,6 +120,20 @@ public class NewsCollectionService {
         });
     }
 
+    /**
+     * Legacy GDELT NGrams commonly publishes minute bursts immediately after
+     * a quarter-hour heartbeat. Select ONE safely aged candidate per tick.
+     * Never assert that the candidate is necessarily published.
+     */
+    static String ngramCandidate(Instant now) {
+        var ready=now.minus(Duration.ofMinutes(7)).atZone(ZoneOffset.UTC);
+        int quarter=(ready.getMinute()/15)*15;
+        var candidate=ready.withMinute(quarter).withSecond(0).withNano(0)
+            .plusMinutes(1);
+        return java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+            .format(candidate);
+    }
+
     private Run ngrams(String slot) {
         // Web NGrams is a minute-level stream, not the 15-minute GKG feed.
         // No official lastupdate manifest for NGrams is documented.
@@ -127,9 +141,7 @@ public class NewsCollectionService {
         // four GKG-derived NGram archive URLs every scheduler tick.
         String batch=slot;
         if(batch==null || batch.isBlank()) {
-            batch=java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                .withZone(ZoneOffset.UTC).format(clock.instant().minus(Duration.ofMinutes(5))
-                    .truncatedTo(java.time.temporal.ChronoUnit.MINUTES));
+            batch=ngramCandidate(clock.instant());
         }
         validateSlot(batch);
         final String key=batch;
