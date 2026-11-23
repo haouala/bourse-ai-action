@@ -113,7 +113,7 @@ public final class GdeltArchiveParser {
             URI u=URI.create(raw);
             String host=u.getHost();
             return raw.length()<=2000 && ("https".equalsIgnoreCase(u.getScheme())||"http".equalsIgnoreCase(u.getScheme()))
-                && host!=null && host.contains(".") && u.getUserInfo()==null
+                && host!=null && host.contains(".") && !host.matches("[0-9.]+") && u.getUserInfo()==null
                 && !host.equalsIgnoreCase("localhost") && !host.endsWith(".local");
         } catch(Exception e){return false;}
     }
