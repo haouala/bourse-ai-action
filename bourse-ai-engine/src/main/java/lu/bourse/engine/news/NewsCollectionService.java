@@ -187,8 +187,9 @@ public class NewsCollectionService {
             String code=error instanceof NewsIngestionException typed?typed.code():"NEWS_ARCHIVE_PARSE_FAILED";
             long delay=error instanceof NewsIngestionException typed?Math.max(60,typed.retryAfterSeconds()):900;
             db.update("""
-                UPDATE gdelt_bulk_runs SET status='DEFERRED',error_code=?,lease_until=NULL,
-                next_attempt_at=?,updated_time=CURRENT_TIMESTAMP WHERE method=? AND batch_key=?
+                UPDATE gdelt_bulk_runs SET status=CASE WHEN attempts>=3 THEN 'FAILED' ELSE 'DEFERRED' END,
+                error_code=?,lease_until=NULL,next_attempt_at=?,updated_time=CURRENT_TIMESTAMP
+                WHERE method=? AND batch_key=?
                 """,code,Timestamp.from(clock.instant().plusSeconds(delay)),method,batch);
             log.warn("news.collect method={} batch={} status=DEFERRED reason={} exception={}",
                 method,batch,code,error.getClass().getSimpleName());
