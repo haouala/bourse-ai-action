@@ -94,3 +94,43 @@ Ne supprimez **pas** le volume PostgreSQL lors de la mise à jour.
 - Les archives peuvent être volumineuses et ne sont pas garanties disponibles
   à tout moment. Le mode reste désactivé par défaut avant vérification de
   débit, réseau et droits de réutilisation.
+
+## Correctif des archives non publiées — découverte indépendante
+
+Les erreurs répétées `GDELT_BATCH_NOT_PUBLISHED` viennent souvent d'une
+hypothèse erronée : quatre quarts d'heure GKG ne correspondent **pas** à
+quatre archives Web NGrams. Le scheduler n'enchaîne plus huit URL fabriquées.
+
+- GKG consulte son manifeste `gdeltv2/lastupdate.txt` et tente uniquement
+  le dernier fichier GKG effectivement **référencé** par le manifeste.
+  Cela ne garantit pas une réponse HTTP 200 (serveur miroir/cache distant).
+- NGrams choisit indépendamment **un seul** créneau à la minute, suffisamment
+  âgé, proche d'un battement de publication de 15 min ; il **peut** être absent.
+  L'absence est tracée, le backoff s'applique et les autres sources continuent.
+- Pour diagnostiquer un téléchargement GKG trouvé mais non lisible, consulter
+  `error_code` et les journaux `news.collect`. Les codes
+  `GDELT_DECOMPRESSED_LIMIT`, `GDELT_ARCHIVE_ROW_LIMIT`,
+  `GDELT_GKG_ZIP_INVALID` et `GDELT_ARCHIVE_IO_FAILURE` identifient
+  les causes sans révéler d'URL privée ni de données sensibles.
+- Le plafond de décompression reste fini et contrôlé (240 Mo par archive).
+- Les anciennes lignes `gdelt_bulk_runs` restent conservées comme preuve
+  historique. **Ne pas les effacer** pour maquiller les erreurs.
+
+Réglage recommandé pendant la vérification sur le PC :
+
+```dotenv
+NEWS_BULK_ENABLED=false
+NEWS_LOG_LEVEL=DEBUG
+INFORMATION_SCHEDULER_ENABLED=true
+```
+
+Pour tester manuellement, récupérer d'abord le dernier code, puis relancer :
+
+```bash
+curl -s -X POST "http://localhost:8081/api/v1/news-collection/run?method=GKG"
+curl -s -X POST "http://localhost:8081/api/v1/news-collection/run?method=NGRAMS"
+curl -s "http://localhost:8081/api/v1/news-collection/status"
+```
+
+En cas d'absence du lot NGrams, ne pas répéter immédiatement l'appel : un
+404 peut simplement signifier que ce créneau n'a jamais été publié.
