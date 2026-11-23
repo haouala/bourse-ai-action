@@ -31,7 +31,7 @@ import java.util.zip.GZIPInputStream;
 @Service
 public class NewsCollectionService {
     private static final Logger log=LoggerFactory.getLogger(NewsCollectionService.class);
-    private static final Pattern SLOT=Pattern.compile("[0-9]{12}00");
+    private static final Pattern SLOT=Pattern.compile("[0-9]{14}");
     private static final Pattern GKG_FILE=Pattern.compile("([0-9]{14}\\.gkg\\.csv\\.zip)");
     private final JdbcTemplate db;
     private final TransactionTemplate tx;
@@ -102,7 +102,7 @@ public class NewsCollectionService {
         try {
             Instant timestamp=LocalDateTime.parse(batch,
                 java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toInstant(ZoneOffset.UTC);
-            if(timestamp.isAfter(clock.instant().minusSeconds(120))||
+            if(timestamp.isAfter(clock.instant().plusSeconds(120))||
                 timestamp.isBefore(clock.instant().minus(Duration.ofDays(30))))
                 throw new NewsIngestionException("NEWS_SLOT_OUT_OF_RANGE",HttpStatus.BAD_REQUEST,false,0);
         } catch(java.time.format.DateTimeParseException e) {
