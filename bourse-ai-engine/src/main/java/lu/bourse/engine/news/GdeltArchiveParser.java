@@ -41,7 +41,7 @@ public final class GdeltArchiveParser {
         List<Company> companies=companies(names);
         Map<Integer,Set<String>> matching=new HashMap<>();
         int examined=0,found=0;
-        try(var br=new BufferedReader(new InputStreamReader(new GZIPInputStream(gzNgrams),StandardCharsets.UTF_8))) {
+        try(var br=new BufferedReader(new InputStreamReader(new InflatedLimit(new GZIPInputStream(gzNgrams)),StandardCharsets.UTF_8))) {
             String line;
             while((line=br.readLine())!=null) {
                 if(++examined>MAX_ROWS || line.length()>MAX_LINE)throw new IOException("ARCHIVE_LIMIT");
@@ -57,7 +57,7 @@ public final class GdeltArchiveParser {
             }
         }
         List<Article> articles=new ArrayList<>();int tocRows=0;
-        try(var br=new BufferedReader(new InputStreamReader(new GZIPInputStream(gzToc),StandardCharsets.UTF_8))) {
+        try(var br=new BufferedReader(new InputStreamReader(new InflatedLimit(new GZIPInputStream(gzToc)),StandardCharsets.UTF_8))) {
             String line;
             while((line=br.readLine())!=null) {
                 if(++tocRows>MAX_ROWS || line.length()>MAX_LINE)throw new IOException("ARCHIVE_LIMIT");
@@ -85,7 +85,7 @@ public final class GdeltArchiveParser {
             ZipEntry e=zin.getNextEntry();
             if(e==null || e.isDirectory() || !e.getName().endsWith(".gkg.csv"))throw new IOException("INVALID_GKG_ARCHIVE");
             // Do not close a reader over zin: ZipInputStream owns the enclosing download.
-            var br=new BufferedReader(new InputStreamReader(zin,StandardCharsets.UTF_8));
+            var br=new BufferedReader(new InputStreamReader(new InflatedLimit(zin),StandardCharsets.UTF_8));
             String line;
             while((line=br.readLine())!=null) {
                 if(++examined>MAX_ROWS || line.length()>MAX_LINE)throw new IOException("ARCHIVE_LIMIT");
@@ -105,6 +105,21 @@ public final class GdeltArchiveParser {
             }
         }
         return new Result(List.copyOf(articles),examined,found);
+    }
+
+    /** Hard byte bound after decompression; row-count bounds alone cannot stop zip bombs. */
+    private static final class InflatedLimit extends FilterInputStream {
+        private long remaining=90_000_000;
+        InflatedLimit(InputStream source){super(source);}
+        @Override public int read()throws IOException {
+            if(remaining==0)throw new IOException("DECOMPRESSED_LIMIT");
+            int b=in.read();if(b!=-1)remaining--;return b;
+        }
+        @Override public int read(byte[] bytes,int offset,int length)throws IOException {
+            if(remaining==0)throw new IOException("DECOMPRESSED_LIMIT");
+            int n=in.read(bytes,offset,(int)Math.min(length,remaining));
+            if(n>0)remaining-=n;return n;
+        }
     }
 
     private static String cut(String value,int max) {return value.length()>max?value.substring(0,max):value;}
