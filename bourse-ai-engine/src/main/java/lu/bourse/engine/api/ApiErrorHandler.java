@@ -2,6 +2,9 @@ package lu.bourse.engine.api;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lu.bourse.engine.news.NewsIngestionException;
+import lu.bourse.engine.provider.quota.QuotaExceededException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
@@ -36,6 +39,22 @@ public class ApiErrorHandler {
         log.warn("api.news-error code={} status={} path={}",e.code(),e.status().value(),request.getRequestURI());
         return response(e.status(),e.code(),e.retryable()?"WARNING":"ERROR",message,
             e.retryable(),e.retryAfterSeconds()>0?e.retryAfterSeconds():null,request);
+    }
+
+    @ExceptionHandler(QuotaExceededException.class)
+    public ResponseEntity<ApiError> quota(QuotaExceededException e,HttpServletRequest request) {
+        long wait=e.retryAt()==null?3600:Math.max(1,Math.min(86400,Duration.between(Instant.now(),e.retryAt()).toSeconds()));
+        log.warn("api.quota provider={} waitSeconds={} path={}",e.provider(),wait,request.getRequestURI());
+        return response(HttpStatus.TOO_MANY_REQUESTS,"PROVIDER_QUOTA_EXCEEDED","WARNING",
+            "Quota du fournisseur atteint. Le traitement reprendra après le délai indiqué.",
+            true,wait,request);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> parameter(MethodArgumentTypeMismatchException e,HttpServletRequest request) {
+        log.info("api.invalid-parameter path={} parameter={}",request.getRequestURI(),e.getName());
+        return response(HttpStatus.BAD_REQUEST,"INVALID_PARAMETER","ERROR",
+            "Paramètre incorrect ou valeur non reconnue.",false,null,request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
