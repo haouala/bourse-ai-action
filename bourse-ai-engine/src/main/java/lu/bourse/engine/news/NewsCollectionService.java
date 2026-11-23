@@ -65,7 +65,7 @@ public class NewsCollectionService {
     public Run run(String method,String slot) {
         return switch(method) {
             case "RSS" -> rssOnce();
-            case "GKG" -> gkg();
+            case "GKG" -> gkg(slot);
             case "NGRAMS" -> ngrams(slot);
             default -> throw new NewsIngestionException("NEWS_METHOD_INVALID",HttpStatus.BAD_REQUEST,false,0);
         };
@@ -89,29 +89,15 @@ public class NewsCollectionService {
         }
     }
 
-    private Run gkg() {
+    private String latestGkgSlot() {
         String index=readSmallText(gdeltBase+"/gdeltv2/lastupdate.txt",16_000);
         Matcher file=GKG_FILE.matcher(index);
         if(!file.find())throw new NewsIngestionException("GKG_INDEX_UNAVAILABLE",HttpStatus.BAD_GATEWAY,true,900);
-        String name=file.group(1);
-        String batch=name.substring(0,14);
-        return collect("GKG",batch,()-> {
-            try(var zip=fetch(gdeltBase+"/gdeltv2/"+name)) {
-                return parser.gkg(zip,watchlist());
-            }
-        });
+        return file.group(1).substring(0,14);
     }
 
-    private Run ngrams(String slot) {
-        String batch=slot;
-        if(batch==null || batch.isBlank()){
-            // GKG's publication heartbeat provides the latest known GDELT 15-minute slot.
-            String index=readSmallText(gdeltBase+"/gdeltv2/lastupdate.txt",16_000);
-            Matcher file=GKG_FILE.matcher(index);
-            if(!file.find())throw new NewsIngestionException("NGRAM_SLOT_UNAVAILABLE",HttpStatus.BAD_GATEWAY,true,900);
-            batch=file.group(1).substring(0,14);
-        }
-        if(!SLOT.matcher(batch).matches())
+    private void validateSlot(String batch) {
+        if(batch==null || !SLOT.matcher(batch).matches())
             throw new NewsIngestionException("NEWS_SLOT_INVALID",HttpStatus.BAD_REQUEST,false,0);
         try {
             Instant timestamp=LocalDateTime.parse(batch,
@@ -119,9 +105,25 @@ public class NewsCollectionService {
             if(timestamp.isAfter(clock.instant().minusSeconds(120))||
                 timestamp.isBefore(clock.instant().minus(Duration.ofDays(30))))
                 throw new NewsIngestionException("NEWS_SLOT_OUT_OF_RANGE",HttpStatus.BAD_REQUEST,false,0);
-        } catch(java.time.format.DateTimeParseException e){
+        } catch(java.time.format.DateTimeParseException e) {
             throw new NewsIngestionException("NEWS_SLOT_INVALID",HttpStatus.BAD_REQUEST,false,0);
         }
+    }
+
+    private Run gkg(String slot) {
+        String batch=slot==null || slot.isBlank()?latestGkgSlot():slot;
+        validateSlot(batch);
+        return collect("GKG",batch,()-> {
+            try(var zip=fetch(gdeltBase+"/gdeltv2/"+batch+".gkg.csv.zip")) {
+                return parser.gkg(zip,watchlist());
+            }
+        });
+    }
+
+    private Run ngrams(String slot) {
+        String batch=slot;
+        if(batch==null || batch.isBlank())batch=latestGkgSlot();
+        validateSlot(batch);
         final String key=batch;
         return collect("NGRAMS",key,()-> {
             try(var words=fetch(gdeltBase+"/gdeltv5/weblegacy/ngrams/"+key+".ngrams.txt.gz");
@@ -251,15 +253,43 @@ public class NewsCollectionService {
         fixedDelayString="${news.bulk.delay-ms:3600000}")
     public void scheduled() {
         if(!scheduled)return;
-        for(String method:List.of("GKG","NGRAMS","RSS")) {
-            try {
-                Run result=run(method,null);
-                log.debug("news.schedule method={} status={} inserted={}",method,result.status(),result.inserted());
-            } catch(NewsIngestionException error) {
-                log.warn("news.schedule method={} code={} retryable={}",method,error.code(),error.retryable());
-            } catch(Exception error) {
-                log.error("news.schedule method={} unhandledType={}",method,error.getClass().getSimpleName());
+        // One index lookup for an hourly, four-slot catch-up. Each slot has its own
+        // persistent checkpoint, so a restart or a failed slot doesn't lose later slots.
+        try {
+            Instant newest=LocalDateTime.parse(latestGkgSlot(),
+                java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toInstant(ZoneOffset.UTC);
+            for(int offset=3;offset>=0;offset--) {
+                String slot=java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                    .withZone(ZoneOffset.UTC).format(newest.minus(Duration.ofMinutes(15L*offset)));
+                for(String method:List.of("GKG","NGRAMS"))runScheduled(method,slot);
             }
+        } catch(NewsIngestionException e) {
+            log.warn("news.schedule archive-index code={} retryable={}",e.code(),e.retryable());
+        } catch(Exception e) {
+            log.error("news.schedule archive-index failureType={}",e.getClass().getSimpleName());
+        }
+        // RSS feeds have separate per-source min intervals and leases. Process up to 10
+        // distinct due sources each hour; never stop other feeds after one failure.
+        for(int i=0;i<10;i++) {
+            try {
+                Run result=run("RSS",null);
+                if(result.status().equals("IDLE"))break;
+                log.debug("news.schedule method=RSS status={} source={}",result.status(),result.batch());
+            } catch(NewsIngestionException e) {
+                log.warn("news.schedule method=RSS reason={}",e.code());
+            } catch(Exception e) {
+                log.error("news.schedule method=RSS failureType={}",e.getClass().getSimpleName());
+            }
+        }
+    }
+    private void runScheduled(String method,String slot) {
+        try {
+            Run result=run(method,slot);
+            log.debug("news.schedule method={} batch={} status={} inserted={}",method,slot,result.status(),result.inserted());
+        } catch(NewsIngestionException e) {
+            log.warn("news.schedule method={} batch={} reason={} retryable={}",method,slot,e.code(),e.retryable());
+        } catch(Exception e) {
+            log.error("news.schedule method={} batch={} failureType={}",method,slot,e.getClass().getSimpleName());
         }
     }
 }
