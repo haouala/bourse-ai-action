@@ -1,3 +1,9 @@
+logging:
+  pattern:
+    level: "%5p [req:%X{requestId:-none}]"
+  level:
+    lu.bourse.engine.news: ${NEWS_LOG_LEVEL:INFO}
+
 server:
   port: ${SERVER_PORT:8081}
   # Bind to loopback by default until user authorization is implemented and tested.
@@ -57,6 +63,13 @@ orchestrator:
   enabled: ${ORCHESTRATOR_ENABLED:false}
   max-per-tick: ${ORCHESTRATOR_MAX_PER_TICK:5}
   delay-ms: ${ORCHESTRATOR_DELAY_MS:300000}
+
+news:
+  bulk:
+    enabled: ${NEWS_BULK_ENABLED:false}
+    delay-ms: ${NEWS_BULK_DELAY_MS:3600000}
+    initial-delay-ms: ${NEWS_BULK_INITIAL_DELAY_MS:300000}
+    base-url: ${GDELT_BULK_BASE_URL:https://data.gdeltproject.org}
 
 market:
   scheduler:

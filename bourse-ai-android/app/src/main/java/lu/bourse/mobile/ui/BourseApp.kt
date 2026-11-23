@@ -29,10 +29,32 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
     val route = entry?.destination?.route ?: "market"
     val config by store.config.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val notice by store.notice.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(notice?.id) {
+        val current=notice ?: return@LaunchedEffect
+        if(current.severity != "ERROR") {
+            snackbar.showSnackbar(current.message, withDismissAction = true,
+                duration = if (current.severity == "WARNING") SnackbarDuration.Long else SnackbarDuration.Short)
+            store.dismissNotice()
+        }
+    }
+    if(notice?.severity == "ERROR") AlertDialog(
+        onDismissRequest = { store.dismissNotice() },
+        title = { Text("Une erreur est survenue") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(notice?.message.orEmpty())
+                notice?.code?.let { Text("Code : $it",style = MaterialTheme.typography.labelSmall) }
+                notice?.requestId?.let { Text("Référence : $it",style = MaterialTheme.typography.labelSmall) }
+            }
+        },
+        confirmButton = { TextButton(onClick = { store.dismissNotice() }) { Text("Fermer") } }
+    )
     LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
     LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
     val root = route in tabs.map { it.route }
-    Scaffold(topBar = { TopAppBar(title = { Text("Bourse AI") }, navigationIcon = {
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI") }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
         if (root) NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
