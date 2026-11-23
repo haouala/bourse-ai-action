@@ -120,9 +120,29 @@ public class NewsCollectionService {
         });
     }
 
+    /**
+     * Legacy GDELT NGrams commonly publishes minute bursts immediately after
+     * a quarter-hour heartbeat. Select ONE safely aged candidate per tick.
+     * Never assert that the candidate is necessarily published.
+     */
+    static String ngramCandidate(Instant now) {
+        var ready=now.minus(Duration.ofMinutes(7)).atZone(ZoneOffset.UTC);
+        int quarter=(ready.getMinute()/15)*15;
+        var candidate=ready.withMinute(quarter).withSecond(0).withNano(0)
+            .plusMinutes(1);
+        return java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+            .format(candidate);
+    }
+
     private Run ngrams(String slot) {
+        // Web NGrams is a minute-level stream, not the 15-minute GKG feed.
+        // No official lastupdate manifest for NGrams is documented.
+        // Probe ONE independent, safely delayed minute instead of inventing
+        // four GKG-derived NGram archive URLs every scheduler tick.
         String batch=slot;
-        if(batch==null || batch.isBlank())batch=latestGkgSlot();
+        if(batch==null || batch.isBlank()) {
+            batch=ngramCandidate(clock.instant());
+        }
         validateSlot(batch);
         final String key=batch;
         return collect("NGRAMS",key,()-> {
@@ -184,15 +204,20 @@ public class NewsCollectionService {
             return new Run(method,batch,"SUCCESS",found.matches(),inserted,
                 "Actualités collectées et dédupliquées.",null,false);
         } catch(Exception error) {
-            String code=error instanceof NewsIngestionException typed?typed.code():"NEWS_ARCHIVE_PARSE_FAILED";
+            String code=error instanceof NewsIngestionException typed?typed.code()
+                :error instanceof IOException io && "DECOMPRESSED_LIMIT".equals(io.getMessage())?"GDELT_DECOMPRESSED_LIMIT"
+                :error instanceof IOException io && "ARCHIVE_LIMIT".equals(io.getMessage())?"GDELT_ARCHIVE_ROW_LIMIT"
+                :error instanceof IOException io && "INVALID_GKG_ARCHIVE".equals(io.getMessage())?"GDELT_GKG_ZIP_INVALID"
+                :error instanceof IOException?"GDELT_ARCHIVE_IO_FAILURE":"NEWS_ARCHIVE_PARSE_FAILED";
             long delay=error instanceof NewsIngestionException typed?Math.max(60,typed.retryAfterSeconds()):900;
             db.update("""
                 UPDATE gdelt_bulk_runs SET status=CASE WHEN attempts>=3 THEN 'FAILED' ELSE 'DEFERRED' END,
                 error_code=?,lease_until=NULL,next_attempt_at=?,updated_time=CURRENT_TIMESTAMP
                 WHERE method=? AND batch_key=?
                 """,code,Timestamp.from(clock.instant().plusSeconds(delay)),method,batch);
-            log.warn("news.collect method={} batch={} status=DEFERRED reason={} exception={}",
-                method,batch,code,error.getClass().getSimpleName());
+            log.warn("news.collect method={} batch={} status=DEFERRED reason={} exception={} ioReason={}",
+                method,batch,code,error.getClass().getSimpleName(),
+                error instanceof IOException io ? io.getMessage() : "N/A");
             if(error instanceof NewsIngestionException typed)throw typed;
             throw new NewsIngestionException(code,HttpStatus.BAD_GATEWAY,true,delay);
         }
@@ -254,21 +279,13 @@ public class NewsCollectionService {
         fixedDelayString="${news.bulk.delay-ms:3600000}")
     public void scheduled() {
         if(!scheduled)return;
-        // One index lookup for an hourly, four-slot catch-up. Each slot has its own
-        // persistent checkpoint, so a restart or a failed slot doesn't lose later slots.
-        try {
-            Instant newest=LocalDateTime.parse(latestGkgSlot(),
-                java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toInstant(ZoneOffset.UTC);
-            for(int offset=3;offset>=0;offset--) {
-                String slot=java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                    .withZone(ZoneOffset.UTC).format(newest.minus(Duration.ofMinutes(15L*offset)));
-                for(String method:List.of("GKG","NGRAMS"))runScheduled(method,slot);
-            }
-        } catch(NewsIngestionException e) {
-            log.warn("news.schedule archive-index code={} retryable={}",e.code(),e.retryable());
-        } catch(Exception e) {
-            log.error("news.schedule archive-index failureType={}",e.getClass().getSimpleName());
-        }
+        // GKG: latest actually PUBLISHED batch from the GKG manifest.
+        // Never infer previous archive URLs from a sequence of clock slots.
+        runScheduled("GKG",null);
+        // NGrams: a separate minute-based feed; one conservative probe per hour.
+        // A 404 means that particular minute is not available; do not sweep
+        // imaginary GKG-aligned timestamps or consume thousands of HTTP calls.
+        runScheduled("NGRAMS",null);
         // RSS feeds have separate per-source min intervals and leases. Process up to 10
         // distinct due sources each hour; never stop other feeds after one failure.
         for(int i=0;i<10;i++) {
