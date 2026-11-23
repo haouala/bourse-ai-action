@@ -27,6 +27,7 @@ par plusieurs entreprises sans inventer de direction boursière.
 Dans le fichier racine `.env` (charger dans IntelliJ ou `bash start.sh`) :
 
 ```dotenv
+NEWS_LOG_LEVEL=INFO
 NEWS_BULK_ENABLED=false
 NEWS_BULK_DELAY_MS=3600000
 NEWS_BULK_INITIAL_DELAY_MS=300000
@@ -41,7 +42,10 @@ collecte simultanée mais plusieurs planificateurs sont inutiles.
 **Préférence** : pour une collecte unifiée, activer NEWS_BULK uniquement,
 et laisser le scheduler RSS historique désactivé.
 
-`NEWS_BULK_DELAY_MS` vaut une heure par défaut. Les opérations REST
+`NEWS_BULK_DELAY_MS` vaut une heure par défaut. Les archives GKG et NGrams couvrent les quatre créneaux de 15 minutes
+les plus récents à chaque passage horaire (reprise idempotente). Jusqu’à dix
+flux RSS prêts sont traités à chaque passage, sans ignorer les autres flux
+si l’un échoue. Les opérations REST
 manuelles fonctionnent même si la planification est désactivée.
 Le backend reste lié à 127.0.0.1 en local. L'authentification administrateur
 est nécessaire **avant toute exposition sur Internet**.
@@ -60,7 +64,7 @@ curl -s "$BASE/api/v1/news/NVDA"
 ```
 
 L'endpoint NGRAMS accepte aussi un slot précis **publié** :
-`?method=NGRAMS&slot=20260630201600`. Les minutes ne sont pas toutes
+`?method=NGRAMS&slot=20261122233000`. Les minutes ne sont pas toutes
 disponibles ; le dernier créneau GKG utilisé par défaut n'est pas garanti
 présent chez NGrams, auquel cas un 503 annonce le lot non publié.
 
@@ -74,7 +78,7 @@ et les erreurs, sans jamais présenter une trace Java.
 Flyway V20 ajoute `gdelt_bulk_runs` et `gdelt_bulk_guard`.
 Chaque `(method,batch_key)` est unique ; les imports atomiques sauvegardent
 leur état et le nombre d'articles. Les échecs sont différés et au plus trois
-tentatives par lot sont prévues. Les archives sont bornées en octets compressés,
+tentatives par lot sont prévues. Les archives sont bornées en octets compressés et décompressés,
 en nombre de lignes, longueur de ligne et nombre de correspondances.
 Ne supprimez **pas** le volume PostgreSQL lors de la mise à jour.
 
