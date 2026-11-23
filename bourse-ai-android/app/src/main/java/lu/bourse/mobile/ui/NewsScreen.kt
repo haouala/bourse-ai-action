@@ -18,7 +18,7 @@ fun NewsScreen(store: AppStore, open: (Long) -> Unit, sources: () -> Unit, perso
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
     fun refresh() = store.load("news", api("information", "items"), filter?.let { mapOf("source" to it) } ?: emptyMap())
-    LaunchedEffect(config, filter) { refresh(); store.load("sources", api("information", "sources")) }
+    LaunchedEffect(config, filter) { refresh(); store.load("sources", api("information", "sources")); if (!config.demo) store.load("gdelt-news", api("news-collection", "items")) }
     Page("Informations", "Publication, collecte et confirmation restent distinctes.") {
         OutlinedTextField(search, { search = it }, label = { Text("Rechercher dans les informations") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         DataBlock(store, "sources", decode = { it.rows() }) { rows -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -27,6 +27,22 @@ fun NewsScreen(store: AppStore, open: (Long) -> Unit, sources: () -> Unit, perso
         } }
         Row { TextButton(onClick = sources) { Text("Sources") }; TextButton(onClick = persons) { Text("Personnes") }; TextButton(onClick = events) { Text("Impacts") } }
         OutlinedButton(onClick = { refresh() }) { Text("Actualiser les informations") }
+        if (!config.demo) Panel("Actualités GDELT : NGrams et GKG") {
+            Text("Mentions détectées dans les archives GDELT. Une mention ne constitue ni une recommandation financière ni une citation vérifiée.", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { store.load("gdelt-news", api("news-collection", "items")) }) { Text("Actualiser les archives") }
+            DataBlock(store, "gdelt-news", decode = { it.rows() }) { articles ->
+                if (articles.isEmpty()) Text("Aucune archive GDELT collectée pour les actions surveillées.")
+                articles.filter {
+                    search.isBlank() || it.text("symbol")?.contains(search,true)==true ||
+                        it.text("title")?.contains(search,true)==true
+                }.take(30).forEach { row ->
+                    Text("${display(row.text("symbol"))} · ${display(row.text("source"))}", style = MaterialTheme.typography.labelMedium)
+                    Text(display(row.text("title")))
+                    Evidence(row.text("url"), "Consulter l’article original")
+                    HorizontalDivider()
+                }
+            }
+        }
         DataBlock(store, "news", decode = ::newsItems) { all ->
             val visible = all.filter { it.title.contains(search, true) || it.summary?.contains(search, true) == true }
             if (visible.isEmpty()) Note("Aucune information. Configurer les sources du backend ou modifier la recherche.")
@@ -98,6 +114,26 @@ fun SourcesScreen(store: AppStore) {
                 OutlinedButton(enabled = enabled && states["feed-write"]?.loading != true, onClick = { store.mutate("feed-write", api("information", "sources", code, "sync")) { refresh() } }) { Text("Collecter ce flux") }
             }
         } }
+        if (!config.demo) Panel("Archives GDELT — trois méthodes") {
+            Text("GKG et NGrams : archives téléchargées et indexées localement. RSS : flux déjà présents dans le catalogue. N’utilise pas l’API DOC limitée à 429.",style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { store.load("bulk-status", api("news-collection", "status")) }) { Text("Statut des collecteurs") }
+            DataBlock(store, "bulk-status", decode = { it.objectValue() }) { result ->
+                Text("Planification automatique : ${if(result.flag("automaticEnabled")==true) "activée" else "désactivée"}")
+                result.list("runs").take(5).forEach { record ->
+                    Text("${display(record.text("method"))} · ${display(record.text("status"))} · ${display(record.text("errorCode"))}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("GKG","NGRAMS","RSS").forEach { method ->
+                    OutlinedButton(enabled = states["bulk-run"]?.loading != true,
+                        onClick = { store.mutate("bulk-run", api("news-collection", "run"), query = mapOf("method" to method)) { store.load("bulk-status", api("news-collection", "status")); store.load("gdelt-news", api("news-collection", "items")) } }) {
+                        Text("Lot $method")
+                    }
+                }
+            }
+            Text("Un lot déjà traité est ignoré. L’archive NGrams doit être publiée pour la minute choisie ; le backend utilise le dernier créneau GKG par défaut.",style = MaterialTheme.typography.bodySmall)
+        }
         Panel("Derniers imports") { DataBlock(store, "feed-runs", decode = { it.rows() }) { runs -> if (runs.isEmpty()) Text("Aucun import enregistré."); runs.take(8).forEach { Text("${display(it.text("sourceCode"))} · ${display(it.text("status"))} · ${display(it.text("insertedCount"))} ajouts · ${dateLabel(it.text("startedAt"))}") } } }
     }
 }
