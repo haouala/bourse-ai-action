@@ -12,7 +12,33 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class ApiFailure(val status: Int?, message: String) : IOException(message)
+class ApiFailure(val status: Int?, message: String, val code: String? = null,
+    val severity: String = "ERROR", val retryAfterSeconds: Long? = null,
+    val requestId: String? = null) : IOException(message)
+
+/** Only accepts the explicitly defined, bounded backend error contract, never arbitrary upstream bodies. */
+fun serverFailure(status: Int, body: String?): ApiFailure {
+    val defaultMessage = when (status) {
+        401, 403 -> "Accès refusé par le serveur."
+        404 -> "Donnée ou route introuvable. Vérifier la version du backend."
+        409 -> "Conflit : capacité, identifiant ou opération déjà enregistrée."
+        429 -> "Quota atteint. Réessayer plus tard."
+        502, 503, 504 -> "Un fournisseur externe est temporairement indisponible."
+        else -> "Le serveur a refusé la demande (HTTP $status)."
+    }
+    val details = runCatching { JsonParser.parseString(body.orEmpty()).asJsonObject }.getOrNull()
+    val code = details?.get("code")?.takeIf { it.isJsonPrimitive }?.asString
+        ?.takeIf { it.matches(Regex("[A-Z0-9_]{3,64}")) }
+    val message = if (code != null) details.get("message")?.takeIf { it.isJsonPrimitive }?.asString
+        ?.takeIf { it.length in 8..240 && !it.contains('\\n') } else null
+    val severity = if (code != null && details?.get("severity")?.asString == "WARNING") "WARNING"
+        else if (status == 429 || status == 502 || status == 503 || status == 504) "WARNING" else "ERROR"
+    val retry = details?.get("retryAfterSeconds")?.takeIf { it.isJsonPrimitive }
+        ?.asString?.toLongOrNull()?.takeIf { it in 1..86400 }
+    val requestId = details?.get("requestId")?.takeIf { it.isJsonPrimitive }?.asString
+        ?.takeIf { it.matches(Regex("[a-zA-Z0-9-]{1,64}")) }
+    return ApiFailure(status, message ?: defaultMessage, code, severity, retry, requestId)
+}
 class ContractFailure(message: String) : IOException(message)
 
 data class ConnectionConfig(val demo: Boolean = true, val server: String = "http://10.0.2.2:8081", val portfolioId: Long? = null) {
@@ -52,13 +78,13 @@ class HttpTransport(config: ConnectionConfig, debug: Boolean) : Transport {
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         try {
-                            if (!it.isSuccessful) throw ApiFailure(it.code, when (it.code) {
-                                401, 403 -> "Accès refusé par le serveur"
-                                404 -> "Donnée ou route introuvable. Vérifier la version du backend."
-                                409 -> "Conflit : capacité, identifiant ou opération déjà enregistrée"
-                                429 -> "Délai de reprise ou quota atteint. Réessayer plus tard."
-                                else -> "Le serveur a refusé la demande (HTTP ${it.code})"
-                            })
+                            if (!it.isSuccessful) {
+                                val responseSource = it.body?.source()
+                                responseSource?.request(4097)
+                                val responseText = responseSource?.buffer?.readUtf8(
+                                    minOf(responseSource.buffer.size, 4096L)).orEmpty()
+                                throw serverFailure(it.code, responseText)
+                            }
                             val source = it.body?.source()
                             if (source != null && source.request(4L * 1024 * 1024 + 1)) throw ContractFailure("Réponse trop volumineuse")
                             val raw = source?.readUtf8().orEmpty()
