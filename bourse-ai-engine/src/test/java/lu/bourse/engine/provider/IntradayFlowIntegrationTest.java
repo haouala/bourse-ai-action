@@ -67,6 +67,8 @@ class IntradayFlowIntegrationTest extends DatabaseIntegrationSupport {
         assertThat(db.queryForObject("SELECT asset_type FROM assets",String.class)).isEqualTo("CRYPTO");
         assertThat(db.queryForObject("SELECT timeframe FROM market_candles",String.class)).isEqualTo("15m");
         assertThat(series.sync(crypto(),"15m").skipped()).isEqualTo(1);
+        assertThat(java.net.URLDecoder.decode(query.get(), StandardCharsets.UTF_8))
+                .contains("start_date=2026-11-17 14:45:00");
     }
     @Test void invalidVolumeOrCurrencyAreRejectedWithoutFabricatedCandles(){
         var a=crypto();body.set(response("USD",false));assertThatThrownBy(()->series.sync(a,"15m")).isInstanceOf(ResponseStatusException.class);
