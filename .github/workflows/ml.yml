@@ -51,7 +51,7 @@ jobs:
         run: |
           python -m pip install -r requirements.lock
           python -m pip install --no-deps .
-      - name: Build unchanged V8 backend
+      - name: Build current backend
         run: mvn -q -f bourse-ai-engine/pom.xml -DskipTests package
       - name: Verify Java and Python on the same PostgreSQL database
         working-directory: bourse-ai-ml
@@ -59,7 +59,7 @@ jobs:
       - name: Run all unit and PostgreSQL regression tests
         working-directory: bourse-ai-ml
         run: python -m pytest -q --junitxml=output/tests.xml
-      - name: Save test evidence and synthetic batch outputs
+      - name: Save test evidence and batch outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:

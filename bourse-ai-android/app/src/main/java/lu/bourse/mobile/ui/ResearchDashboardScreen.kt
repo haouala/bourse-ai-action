@@ -33,6 +33,7 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
         store.load("$prefix:scenarios", api("charts", symbol, "scenarios"))
         store.load("$prefix:predictions", api("charts", symbol, "predictions"), mapOf("limit" to "100"))
         store.load("$prefix:ml", api("charts", symbol, "ml"), mapOf("limit" to "100"))
+        store.load("$prefix:market-ml", api("ml", "market", symbol))
         store.load("$prefix:regime", api("regimes", symbol))
         store.load("$prefix:bottleneck", api("ai-bottlenecks", symbol))
     }
@@ -129,6 +130,27 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 }
             }
         }
+        Panel("ML sur cours historiques") {
+            DataBlock(store, "$prefix:market-ml", decode = ::marketModelResults) { results ->
+                if (results.isEmpty()) Text("Aucun résultat de recherche disponible.")
+                results.forEach { result ->
+                    val horizonLabel = when (result.horizon) {
+                        "DAY" -> "1 séance"
+                        "MONTH" -> "21 séances"
+                        "YEAR" -> "252 séances"
+                        else -> result.horizon
+                    }
+                    KeyValue(horizonLabel, result.model)
+                    KeyValue("Clôture de référence", dateLabel(result.asOf))
+                    val estimate = result.estimate
+                    if (estimate != null) KeyValue("Estimation expérimentale de hausse nette",
+                        amount(estimate.movePointRight(2)) + " %")
+                    else Text("Estimation indisponible pour la dernière clôture vérifiée.")
+                    KeyValue("Brier modèle / référence", amount(result.brier) + " / " + amount(result.constantBrier))
+                    KeyValue("Observations de test", result.testCount.toString())
+                }
+            }
+        }
         Panel("AI Bottleneck · éléments sourcés") {
             DataBlock(store, "$prefix:bottleneck", decode = { it.objectValue() }) { r ->
                 val result = r.child("assessment")
@@ -156,6 +178,7 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                     }
                     store.load("$prefix:$part", endpoint, options)
                 }
+                store.load("$prefix:market-ml", api("ml", "market", symbol))
                 store.load("$prefix:score", api("scoring", symbol), mapOf("horizonDays" to horizon.toString()))
             }, modifier = Modifier.fillMaxWidth().testTag("refresh-research")
         ) { Text("Actualiser analyses et graphiques") }

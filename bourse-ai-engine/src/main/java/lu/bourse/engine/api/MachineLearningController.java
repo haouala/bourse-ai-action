@@ -1,6 +1,7 @@
 package lu.bourse.engine.api;
 
 import lu.bourse.engine.service.MachineLearningService;
+import lu.bourse.engine.service.MarketModelResearchService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -8,7 +9,13 @@ import java.util.List;
 @RequestMapping("/api/v1/ml")
 public class MachineLearningController {
  private final MachineLearningService service;
- public MachineLearningController(MachineLearningService service){this.service=service;}
+ private final MarketModelResearchService market;
+ public MachineLearningController(MachineLearningService service,MarketModelResearchService market){
+  this.service=service;
+  this.market=market;
+ }
+ @GetMapping("/market/{symbol}")
+ public List<MarketModelResearchService.Result> market(@PathVariable String symbol){return market.latest(symbol);}
  // Administrative CPU-intensive endpoint; require auth, quota and job queue before production.
  @PostMapping("/train/{symbol}")
  public MachineLearningService.Training train(@PathVariable String symbol,

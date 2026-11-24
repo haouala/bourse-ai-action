@@ -27,6 +27,7 @@ class DemoResearch {
 
     fun request(method: String, path: List<String>, query: Map<String, String>): JsonElement? {
         if (method != "GET" || path.size < 4 || path.take(2) != listOf("api", "v1")) return null
+        if (path.size == 5 && path[2] == "ml" && path[3] == "market") return JsonArray()
         val symbol = path[3]
         val group = path[2]
         if (group !in setOf("charts", "scoring", "regimes", "ai-bottlenecks")) return null

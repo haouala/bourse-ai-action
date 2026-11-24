@@ -4,6 +4,8 @@ Starts the actual Java JAR, then Python against that SAME database. Never run
 this bootstrap tool against a user database; the normal CLI does not launch Java.
 """
 import argparse
+from datetime import date, datetime, time as clock_time, timedelta, timezone
+import math
 import hashlib
 import json
 import os
@@ -20,14 +22,79 @@ from bourse_ai_ml import repository as db
 from bourse_ai_ml.domain import canonical
 
 
-def snapshot(conn):
+def snapshot(conn, exclude=()):
     tables=conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name").fetchall()
     content={}
     for table in tables:
         name=table['table_name']
+        if name in exclude:
+            continue
         rows=conn.execute(sql.SQL('SELECT to_jsonb(t) AS value FROM {}.{} AS t').format(sql.Identifier('public'),sql.Identifier(name))).fetchall()
         content[name]=sorted(canonical(r['value']) for r in rows)
     return {'tables':len(content),'rows':sum(len(v) for v in content.values()),'sha256':hashlib.sha256(canonical(content).encode()).hexdigest()}
+
+
+def seed_market_fixture(conn):
+    first, end = date(2024, 1, 2), date(2025, 2, 28)
+    source = "https://example.test/fixture/calendar"
+    conn.execute("INSERT INTO market_calendars(code,zone_id,coverage_start,coverage_end,source_url) VALUES ('ML_FIXTURE','UTC',%s,%s,%s)",
+                 (first, end, source))
+    asset = conn.execute("""
+        INSERT INTO assets(symbol,name,asset_type,currency) VALUES ('MLFIXTURE','Synthetic ML smoke','STOCK','USD')
+        RETURNING id
+        """).fetchone()["id"]
+    conn.execute("INSERT INTO asset_market_policies(asset_id,calendar_code) VALUES (%s,'ML_FIXTURE')", (asset,))
+    conn.execute("""
+        INSERT INTO daily_series_qualifications(asset_id,provider,adjustment,evidence_url,qualified_at)
+        VALUES (%s,'FIXTURE','SPLIT_ADJUSTED',%s,'2024-01-02T00:00:00Z')
+        """, (asset, source))
+    day = first
+    index = 0
+    while day <= end:
+        midnight = datetime.combine(day, clock_time(), timezone.utc)
+        if day.weekday() < 5:
+            open_at, close_at = midnight + timedelta(hours=14), midnight + timedelta(hours=20)
+            conn.execute("""
+                INSERT INTO market_sessions(calendar_code,session_date,opens_at,closes_at,reason,source_url)
+                VALUES ('ML_FIXTURE',%s,%s,%s,'TEST_SESSION',%s)
+                """, (day, open_at, close_at, source))
+            price = 110 + 12 * math.sin(index / 6) + 3 * math.cos(index / 2)
+            price = round(price, 4)
+            opening = round(price * (1 + .012 * math.sin(index / 3)), 4)
+            conn.execute("""
+                INSERT INTO market_candles(asset_id,timeframe,open_time,open_price,high_price,low_price,close_price,volume,provider)
+                VALUES (%s,'1d',%s,%s,%s,%s,%s,1000,'FIXTURE')
+                """, (asset, midnight, opening, max(opening, price), min(opening, price), price))
+            index += 1
+        else:
+            conn.execute("""
+                INSERT INTO market_sessions(calendar_code,session_date,reason,source_url)
+                VALUES ('ML_FIXTURE',%s,'WEEKEND',%s)
+                """, (day, source))
+        day += timedelta(days=1)
+    return first.isoformat(), end.isoformat() + "T23:00:00Z"
+
+
+def verify_real_path(conn, cli, port, output):
+    start, cutoff = seed_market_fixture(conn)
+    protected_tables = ("ml_market_runs", "ml_market_predictions")
+    before = snapshot(conn, exclude=protected_tables)
+    options = ("--start", start, "--as-of", cutoff, "--horizon", "DAY", "--symbols", "MLFIXTURE")
+    coverage = cli("market-coverage", *options)["coverage"]
+    assert coverage[0]["status"] == "READY"
+    first = cli("train-market", *options)
+    again = cli("train-market", *options)
+    assert not first["reused"] and again["reused"] and first["runId"] == again["runId"]
+    assert len(first["predictions"]) == 1 and len(first["walkForward"]) == 3
+    assert set(first["validationBrier"]) == {"LOGISTIC", "HIST_GRADIENT_BOOSTING"}
+    assert snapshot(conn, exclude=protected_tables) == before
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/ml/market/MLFIXTURE", timeout=3) as response:
+        published = json.load(response)
+    assert len(published) == 1 and published[0]["runId"] == first["runId"]
+    assert published[0]["testCount"] == first["testCount"]
+    (output / "market-fixture-report.json").write_text(json.dumps(first, indent=2) + "\n")
+    return {"fixture": "SYNTHETIC_PRICES_IN_JAVA_SCHEMA", "run_id": first["runId"],
+            "second_run_reused": again["reused"], "api_verified": True, "test_count": first["testCount"]}
 
 
 def main():
@@ -76,7 +143,8 @@ def main():
                 after=snapshot(conn);assert before==after,'Java public data changed during ML batch'
                 with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/explanations/rulesets',timeout=3) as response:
                     assert len(json.load(response))==3
-                proof={'same_postgresql_database':True,'java_remained_available':True,
+                market_proof=verify_real_path(conn,cli,port,args.output)
+                proof={'market_adapter_training_api':market_proof,'same_postgresql_database':True,'java_remained_available':True,
                     'public_before':before,'public_after':after,'ml_schema':'bourse_ml',
                     'backend_rules_modified':False,'demo_result':first,'second_run_reused':again['reused'],
                     'postgres_version':conn.execute('SHOW server_version').fetchone()['server_version']}
