@@ -82,10 +82,14 @@ class IntradayFlowIntegrationTest extends DatabaseIntegrationSupport {
         assertThat(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE status='SUCCEEDED'",Integer.class)).isEqualTo(1);
         assertThat(watchlist.enqueue()).isZero();assertThat(calls.get()).isEqualTo(1);
     }
-    @Test void localQuotaDefersTheTaskBeforeHttp(){
+    @Test void localQuotaLeavesNativeTasksQueuedWithoutHttp(){
         crypto();watchlist.enqueue();
         for(int i=0;i<8;i++)db.update("INSERT INTO provider_api_calls(provider,reserved_at,credits) VALUES ('TWELVE_DATA',?,1)",java.sql.Timestamp.from(NOW));
-        assertThat(tasks.runNext().get("status")).isEqualTo("DEFERRED");assertThat(calls.get()).isZero();
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE error_code='LOCAL_QUOTA'",Integer.class)).isEqualTo(1);
+        assertThat(tasks.runNext().get("status")).isEqualTo("SUCCEEDED");
+        assertThat(tasks.runNext().get("status")).isEqualTo("SUCCEEDED");
+        assertThat(tasks.runNext().get("status")).isEqualTo("PROVIDER_QUOTA_PAUSED");
+        assertThat(calls.get()).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE timeframe IN ('30m','1h') AND status='SUCCEEDED'",Integer.class)).isEqualTo(2);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE timeframe='15m' AND status='PENDING' AND attempts=0",Integer.class)).isEqualTo(1);
     }
 }

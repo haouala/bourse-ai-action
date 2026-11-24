@@ -3,6 +3,8 @@ package lu.bourse.engine.market;
 import lu.bourse.engine.persistence.SqlIds;
 import lu.bourse.engine.provider.*;
 import lu.bourse.engine.provider.quota.QuotaExceededException;
+import lu.bourse.engine.provider.quota.MarketProvider;
+import lu.bourse.engine.provider.quota.ProviderQuotaService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -16,20 +18,22 @@ import java.util.*;
 public class MarketTaskService {
     private final JdbcTemplate db; private final TwelveDataSeriesService series; private final Clock clock;
     private final TransactionTemplate transaction;
+    private final ProviderQuotaService quotas;
     private final LocalCandleAggregationService aggregation;
-    public MarketTaskService(JdbcTemplate db,TwelveDataSeriesService series,Clock clock,PlatformTransactionManager manager,LocalCandleAggregationService aggregation){this.aggregation=aggregation;this.db=db;this.series=series;this.clock=clock;transaction=new TransactionTemplate(manager);}
+    public MarketTaskService(JdbcTemplate db,TwelveDataSeriesService series,Clock clock,PlatformTransactionManager manager,LocalCandleAggregationService aggregation,ProviderQuotaService quotas){this.quotas=quotas;this.aggregation=aggregation;this.db=db;this.series=series;this.clock=clock;transaction=new TransactionTemplate(manager);}
     public List<Map<String,Object>> list(){return db.queryForList("SELECT t.*,a.symbol FROM market_sync_tasks t JOIN assets a ON a.id=t.asset_id ORDER BY t.id DESC LIMIT 200");}
     /** Claim under a short DB lock; never keep the transaction open during remote HTTP. */
     public Map<String,Object> runNext(){
         Instant now=clock.instant();
+        boolean allowProvider = quotas.usage(MarketProvider.TWELVE_DATA).canCall(clock.instant());
         Map<String,Object> task=transaction.execute(status->{
-            var rows=db.queryForList("SELECT t.* FROM market_sync_tasks t JOIN watchlist w ON w.asset_id=t.asset_id WHERE w.enabled=TRUE AND ((t.status IN ('PENDING','DEFERRED') AND t.next_attempt_at<=?) OR (t.status='RUNNING' AND t.lease_until<=?)) ORDER BY t.next_attempt_at,t.id LIMIT 1 FOR UPDATE",Timestamp.from(now),Timestamp.from(now));
+            var rows=db.queryForList("SELECT t.* FROM market_sync_tasks t JOIN watchlist w ON w.asset_id=t.asset_id WHERE w.enabled=TRUE AND (? OR t.timeframe IN ('30m','1h')) AND ((t.status IN ('PENDING','DEFERRED') AND t.next_attempt_at<=?) OR (t.status='RUNNING' AND t.lease_until<=?)) ORDER BY t.next_attempt_at,t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED",allowProvider,Timestamp.from(now),Timestamp.from(now));
             if(rows.isEmpty())return null;
             var row=rows.getFirst();
             db.update("UPDATE market_sync_tasks SET status='RUNNING',lease_until=?,attempts=attempts+1,updated_time=CURRENT_TIMESTAMP WHERE id=?",Timestamp.from(now.plusSeconds(600)),row.get("id"));
             return row;
         });
-        if(task==null)return Map.of("status","IDLE");
+        if(task==null)return Map.of("status",allowProvider?"IDLE":"PROVIDER_QUOTA_PAUSED");
         long id=((Number)task.get("id")).longValue();
         try{
             var asset=db.queryForList("SELECT a.*,w.provider_symbol FROM assets a JOIN watchlist w ON a.id=w.asset_id WHERE a.id=?",task.get("asset_id")).getFirst();
