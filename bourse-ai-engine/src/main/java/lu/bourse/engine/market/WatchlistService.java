@@ -41,6 +41,21 @@ public class WatchlistService {
         calendars.assignDefault(asset.getId(),r.assetType(),r.region(),r.marketZone(),r.sessionOpen(),r.sessionClose());
         return asset.getId();
     }
+    /** Register imported US daily equities; other markets require explicit exchange metadata. */
+    @Transactional public int registerImportedUs(){
+        db.queryForObject("SELECT id FROM watchlist_guard WHERE id=1 FOR UPDATE",Integer.class);
+        int count=0;
+        for(var row:db.queryForList("SELECT a.* FROM assets a WHERE a.asset_type='STOCK' AND a.currency='USD' AND EXISTS (SELECT 1 FROM market_candles c WHERE c.asset_id=a.id AND c.timeframe='1d' AND c.provider='TWELVE_DATA') AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.asset_id=a.id) ORDER BY a.symbol")){
+            String symbol=(String)row.get("symbol");
+            if(!isUsRegistrationCandidate(symbol))continue;
+            int active=db.queryForObject("SELECT COUNT(*) FROM watchlist w JOIN assets a ON a.id=w.asset_id WHERE w.enabled=TRUE AND a.asset_type='STOCK'",Integer.class);
+            if(active>=100)break;
+            register(new Entry(symbol,(String)row.get("name"),"STOCK","USD",symbol,"US","America/New_York","09:30","16:00",true));
+            count++;
+        }
+        return count;
+    }
+    static boolean isUsRegistrationCandidate(String symbol){return symbol!=null&&symbol.matches("[A-Z]{1,5}");}
     public List<Map<String,Object>> list(){return db.queryForList("SELECT w.*,a.symbol,a.name,a.asset_type,a.currency FROM watchlist w JOIN assets a ON a.id=w.asset_id ORDER BY a.asset_type,a.symbol");}
     /** Verified sessions gate pulls; closed sessions still need a final closing-bar catch-up. */
     @Transactional public int enqueue(){
