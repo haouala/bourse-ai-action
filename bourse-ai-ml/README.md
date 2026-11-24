@@ -2,14 +2,14 @@
 
 Python tourne dans un processus séparé, sur **la même base PostgreSQL que Java**, dans le schéma dédié `bourse_ml`. Le backend conserve ses tables et ses règles actives.
 
-Cette première version travaille uniquement sur des **données fictives reproductibles**. Elle apprend des coefficients candidats, les évalue et les enregistre, puis quitte. Aucun token fournisseur ou IA, ordre de bourse, ordonnanceur ou modification du budget de perte n'est utilisé.
+Le mode démonstration utilise des données fictives reproductibles. Le mode marché lit les historiques qualifiés du backend PostgreSQL, compare deux modèles et publie les résultats de recherche, puis quitte. Aucun token fournisseur ou IA, ordre de bourse, ordonnanceur ou modification du budget de perte n'est utilisé.
 
 ## Installation et lancement sous PowerShell
 
 Python 3.12 est la version validée. Adapter les coordonnées PostgreSQL à celles de Java : le port 5434 ci-dessous correspond à sa configuration actuelle par défaut, pas au port HTTP 8081.
 
 ~~~powershell
-git clone --branch feature/ml-batch-demo https://github.com/haouala/bourse-ai-action.git bourse-ml
+git clone --branch integration/unified-bourse-ai https://github.com/haouala/bourse-ai-action.git bourse-ml
 cd bourse-ml\bourse-ai-ml
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock
@@ -105,11 +105,36 @@ Voir [docs/VALIDATION.md](docs/VALIDATION.md) pour les résultats effectivement 
 
 ## Limites
 
-Les résultats synthétiques ne valident aucune performance boursière réelle. Les coefficients logistiques ne remplacent pas directement les amplitudes Java : aucun import ou activation n'est fourni. L'adaptateur aux historiques réels et snapshots Java, la reconstruction point-in-time, les titres radiés, les vrais calendriers et les particularités crypto restent à développer et valider. Ce module n'ajoute ni LLM, ni nouvelles collectes, ni modification Android.
+Les résultats synthétiques ne valident aucune performance boursière réelle. Les coefficients logistiques ne remplacent pas directement les amplitudes Java : aucun import ou activation n'est fourni. Voir le mode marché ci-dessous pour le périmètre validé et ses limites.
 
 
 ## Apprendre sans historique d'informations
 
 `python -m bourse_ai_ml demo --feature-set PRICE_ONLY --assets 8 --horizon MONTH` utilise seulement `technical`, `market_momentum`, `volatility`. Les composantes informationnelles et fondamentales ne sont ni consommées ni remplacées par des zéros. `ENRICHED` conserve le mode précédent à cinq composantes et son identité de configuration. Les deux modes partagent un jeu synthétique mais ont des identifiants de calcul et des coefficients distincts.
 
-Le noyau de calcul accepte l'absence de valeurs non utilisées en mode PRICE_ONLY. Le schéma de démonstration stocke encore ses cinq composantes générées : l'adaptateur aux données métier réelles et leur représentation de disponibilité restent à construire. La référence heuristique enrichie n'est pas présentée comme une comparaison équivalente d'un modèle cours seuls. Le modèle constant de référence reste disponible. Aucun modèle n'est activé dans Java.
+Le noyau de calcul accepte l'absence de valeurs non utilisées en mode PRICE_ONLY. Le schéma de démonstration stocke ses cinq composantes générées. La référence heuristique enrichie n'est pas présentée comme une comparaison équivalente d'un modèle cours seuls. Le modèle constant de référence reste disponible. Aucun modèle n'est activé dans Java.
+
+
+## Entraîner sur la base de marché
+
+Démarrer Java avec le profil PostgreSQL pour appliquer Flyway V23. Les commandes utilisent les mêmes paramètres de connexion que la démo. Choisir une date de début couverte par le calendrier et un horodatage de coupure explicite. Sans `--symbols`, la sélection utilise les actions activées dans la watchlist, jusqu’à 100. La commande de couverture indique les séances attendues, les cours au bon format et les observations utilisables par action.
+
+```bash
+python -m bourse_ai_ml market-coverage --start 2026-01-01 --as-of 2026-11-24T23:00:00Z --horizon DAY --symbols NVDA MSFT
+python -m bourse_ai_ml train-market --start 2026-01-01 --as-of 2026-11-24T23:00:00Z --horizon DAY --symbols NVDA MSFT
+python -m bourse_ai_ml market-report IDENTIFIANT_DU_CALCUL
+```
+
+**Prérequis par action**
+
+- Importer les bougies journalières dans `market_candles`. La date journalière doit être stockée à minuit UTC, comme les imports Java.
+- Assigner un calendrier vérifié avec toutes les séances historiques nécessaires et qualifier la série `SPLIT_ADJUSTED` avec son fournisseur et sa preuve. Le calendrier US livré commence en 2026. Importer la couverture officielle plus ancienne lorsque l’entraînement l’exige.
+- Laisser au minimum 21 séances pour construire les composantes. Chaque découpage exige ensuite au moins 15 dates et 30 observations dans ses trois sections après purge des étiquettes. Pour 21 ou 252 séances de prévision, prévoir davantage d’historique. Une lacune dans une fenêtre rend cette observation ou son résultat indisponible.
+
+Les composantes sont calculées à partir des clôtures jusqu’à la séance de référence. L’entrée simulée est l’ouverture suivante et la sortie la clôture après 1, 21 ou 252 séances du calendrier. Le coût aller-retour de 20 points de base par défaut est retranché du rendement brut. La régression logistique et le gradient boosting sont ajustés sur le passé. Le score de Brier de validation choisit le modèle avant l’évaluation finale. Le rapport regroupe les tests chronologiques, la calibration, le Brier, la log loss, l’AUC si applicable et le benchmark constant.
+
+Le backtest financier compare, par devise, des groupes de positions équipondérées sans chevauchement. Le modèle sélectionne un titre à partir d’une estimation de 60 %. Le benchmark prend tous les titres admissibles à la même date. Les frais configurés sont inclus. Le drawdown utilise les points de liquidation des groupes. Le rapport marque les périodes trop courtes et indique si le modèle dépasse le benchmark constant sur le dernier test.
+
+Les rapports et estimations expérimentales sont enregistrés atomiquement dans `ml_market_runs` et `ml_market_predictions`. Un même contenu et une même configuration réutilisent le calcul existant. Pour un compte distinct, donner SELECT sur `assets`, `watchlist`, `asset_market_policies`, `market_sessions`, `daily_series_qualifications` et `market_candles`, et SELECT/INSERT sur les deux tables de résultats. Le mode marché publie uniquement des résultats de recherche. Le backend expose `GET /api/v1/ml/market/{symbol}` et l’écran Android **Intelligence** les affiche. Java masque l’estimation lorsque la clôture de référence est ancienne ou non vérifiable.
+
+**Limites de validation.** La sélection dépend des actions et des historiques disponibles actuellement. Les cours révisés, les retards historiques d’ingestion et les titres radiés ne sont pas reconstruits. Le backtest utilise les rendements en devise locale et ne simule ni conversion FX, ni dividendes, ni slippage variable, ni risque intraday. Les tests GitHub utilisent un jeu de cours artificiels dans le vrai schéma PostgreSQL de Java. Pour mesurer les performances sur vos 100 actions, lancer d’abord `market-coverage` sur votre base puis conserver le rapport `train-market` avec la période et la couverture effectivement utilisées.
