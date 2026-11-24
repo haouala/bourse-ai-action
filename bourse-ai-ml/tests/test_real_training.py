@@ -37,3 +37,6 @@ def test_fits_both_families_and_emits_only_latest_unlabelled_signals():
     assert result["selectedModel"] == min(result["validationBrier"], key=result["validationBrier"].get)
     assert {r["symbol"] for r in result["predictions"]} == {"NVDA", "MSFT", "AAPL"}
     assert all(0 <= r["estimate"] <= 1 for r in result["predictions"])
+    assert len(result["walkForward"]) == 3
+    assert result["walkForward"][-1]["status"] == "EVALUATED"
+    assert "USD" in result["walkForward"][-1]["strategiesByCurrency"]

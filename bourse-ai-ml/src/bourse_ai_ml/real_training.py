@@ -1,5 +1,4 @@
 """Fit research classifiers using dated market features and mature net-return labels."""
-from dataclasses import asdict
 from importlib.metadata import version
 
 import numpy as np
@@ -11,8 +10,9 @@ from sklearn.preprocessing import StandardScaler
 
 from .domain import DataError, digest
 from .market import PRICE_FEATURES
+from .financial_validation import evaluate_predictions
 
-VERSION = "market-classifiers-v1"
+VERSION = "market-classifiers-walk-forward-v1"
 
 
 def chronological_partition(events, validation_day, test_day, end_day=None):
@@ -67,6 +67,23 @@ def train_market(dataset):
     train, validation, test = chronological_partition(dataset.events, validation_day, test_day)
     models, scores, prevalence = fit_candidates(train, validation)
     selected = min(scores, key=scores.get)
+    tests = []
+    cut = lambda fraction: dates[len(dates) * fraction // 10]
+    for val_start, test_start, test_end in ((cut(4), cut(5), cut(6)), (cut(5), cut(6), test_day)):
+        period = {"validationStart": val_start.isoformat(), "testStart": test_start.isoformat(),
+                  "testEndExclusive": test_end.isoformat()}
+        try:
+            t, v, oos = chronological_partition(dataset.events, val_start, test_start, test_end)
+            candidates, val_scores, prior = fit_candidates(t, v)
+        except DataError as exc:
+            tests.append({**period, "status": "INSUFFICIENT_EVIDENCE", "reason": str(exc)})
+            continue
+        name = min(val_scores, key=val_scores.get)
+        tests.append({**period, "status": "EVALUATED", "model": name, "testCount": len(oos),
+                      **evaluate_predictions(oos, candidates[name].predict_proba(matrix(oos))[:, 1], prior)})
+    holdout = evaluate_predictions(test, models[selected].predict_proba(matrix(test))[:, 1], prevalence)
+    tests.append({"validationStart": validation_day.isoformat(), "testStart": test_day.isoformat(),
+                  "status": "EVALUATED", "model": selected, "testCount": len(test), **holdout})
     latest = {}
     expected = {r["symbol"]: r["lastExpectedDate"] for r in dataset.coverage}
     for event in dataset.events:
@@ -77,6 +94,9 @@ def train_market(dataset):
     return {
         "features": list(PRICE_FEATURES),
         "selectedModel": selected,
+        "validationStatus": ("ABOVE_CONSTANT_ON_HOLDOUT" if holdout["brier"] < holdout["constantBrier"]
+                             else "CONSTANT_NOT_BEATEN"),
+        "walkForward": tests,
         "validationBrier": scores,
         "testBrier": {name: float(brier_score_loss(targets(test), m.predict_proba(matrix(test))[:, 1]))
                       for name, m in models.items()},
