@@ -45,17 +45,31 @@ public class WatchlistService {
     @Transactional public int registerImportedUs(){
         db.queryForObject("SELECT id FROM watchlist_guard WHERE id=1 FOR UPDATE",Integer.class);
         int count=0;
-        for(var row:db.queryForList("SELECT a.* FROM assets a WHERE a.asset_type='STOCK' AND a.currency='USD' AND EXISTS (SELECT 1 FROM market_candles c WHERE c.asset_id=a.id AND c.timeframe='1d' AND c.provider='TWELVE_DATA') AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.asset_id=a.id) ORDER BY a.symbol")){
-            String symbol=(String)row.get("symbol");
-            if(!isUsRegistrationCandidate(symbol))continue;
+        for (var row : db.queryForList("""
+                SELECT a.*, p.provider_symbol, p.exchange_mic FROM assets a
+                JOIN asset_provider_symbols p ON p.asset_id=a.id AND p.provider='TWELVE_DATA'
+                WHERE a.asset_type='STOCK' AND a.currency='USD'
+                  AND EXISTS (SELECT 1 FROM market_candles c WHERE c.asset_id=a.id
+                    AND c.timeframe='1d' AND c.provider='TWELVE_DATA')
+                  AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.asset_id=a.id)
+                ORDER BY a.symbol
+                """)) {
+            String symbol = (String) row.get("symbol");
+            if (!isUsRegistrationCandidate(symbol, (String) row.get("exchange_mic"))) continue;
             int active=db.queryForObject("SELECT COUNT(*) FROM watchlist w JOIN assets a ON a.id=w.asset_id WHERE w.enabled=TRUE AND a.asset_type='STOCK'",Integer.class);
             if(active>=100)break;
-            register(new Entry(symbol,(String)row.get("name"),"STOCK","USD",symbol,"US","America/New_York","09:30","16:00",true));
+            register(new Entry(symbol,(String)row.get("name"),"STOCK","USD",(String)row.get("provider_symbol"),"US","America/New_York","09:30","16:00",true));
             count++;
         }
         return count;
     }
-    static boolean isUsRegistrationCandidate(String symbol){return symbol!=null&&symbol.matches("[A-Z]{1,5}");}
+    private static final Set<String> US_EQUITY_MICS = Set.of(
+            "XNYS", "XNAS", "XNGS", "XNMS", "XNCM", "ARCX", "XASE", "BATS");
+
+    static boolean isUsRegistrationCandidate(String symbol, String mic) {
+        return symbol != null && symbol.matches("[A-Z]{1,5}(?:[.-][A-Z])?")
+                && mic != null && US_EQUITY_MICS.contains(mic);
+    }
     public List<Map<String,Object>> list(){return db.queryForList("SELECT w.*,a.symbol,a.name,a.asset_type,a.currency FROM watchlist w JOIN assets a ON a.id=w.asset_id ORDER BY a.asset_type,a.symbol");}
     /** Verified sessions gate pulls; closed sessions still need a final closing-bar catch-up. */
     @Transactional public int enqueue(){

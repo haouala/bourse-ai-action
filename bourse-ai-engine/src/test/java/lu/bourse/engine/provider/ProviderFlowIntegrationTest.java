@@ -79,6 +79,20 @@ class ProviderFlowIntegrationTest extends DatabaseIntegrationSupport {
     @AfterAll static void stopServer() { server.stop(0); }
 
     @Test
+    void watchesOnlyDailyImportsWithVerifiedUsExchangeMetadata() throws Exception {
+        responseBody.set(twelvePrices().replace("\"currency\":\"USD\"", "\"currency\":\"USD\",\"mic_code\":\"XNGS\""));
+        mvc.perform(post("/api/v1/providers/twelve-data/sync/NVDA")).andExpect(status().isOk());
+        responseBody.set(twelvePrices());
+        mvc.perform(post("/api/v1/providers/twelve-data/sync/UNKNOWN")).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/watchlist/register-imported-us"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.registered").value(1));
+        mvc.perform(post("/api/v1/watchlist/register-imported-us"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.registered").value(0));
+        assertThat(jdbc.queryForList("SELECT provider_symbol FROM watchlist", String.class))
+                .containsExactly("NVDA");
+    }
+
+    @Test
     void dailyPricesFlowThroughPersistenceIndicatorsNewsAndExplanation() throws Exception {
         responseBody.set(twelvePrices());
         mvc.perform(post("/api/v1/providers/twelve-data/sync/NVDA"))

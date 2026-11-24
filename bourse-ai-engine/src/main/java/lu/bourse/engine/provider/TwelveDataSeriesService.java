@@ -26,7 +26,9 @@ public class TwelveDataSeriesService {
         try{
             String url=UriComponentsBuilder.fromUriString(base+"/time_series").queryParam("symbol",asset.get("provider_symbol"))
                     .queryParam("interval",tf.twelveCode()).queryParam("timezone","UTC").queryParam("outputsize",5000).queryParam("apikey",key).build().encode().toUriString();
-            JsonNode doc=http.get(ProviderOperation.TWELVE_DAILY,url,null),values=doc.path("values");
+            ProviderOperation operation = tf == Timeframe.parse("1d")
+                    ? ProviderOperation.TWELVE_DAILY : ProviderOperation.TWELVE_INTRADAY;
+            JsonNode doc=http.get(operation,url,null),values=doc.path("values");
             if(!values.isArray() || values.isEmpty())throw unavailable();
             String currency=doc.path("meta").path("currency").asText("").toUpperCase(Locale.ROOT);
             if(!currency.equals(asset.get("currency")))throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Provider currency is absent or differs from registered asset");

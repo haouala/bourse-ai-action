@@ -37,6 +37,15 @@ public class LocalCandleAggregationService {
         var derived=new ArrayList<PriceBar>();
         for(var session:sessions) derived.addAll(CandleAggregation.aggregate(source,session[0],session[1],now,minutes));
         if(derived.isEmpty()) return new HistoryService.ImportResult(symbol,0,0);
-        return history.importBars(new HistoryService.ImportRequest(symbol,(String)asset.get("name"),(String)asset.get("asset_type"),(String)asset.get("currency"),timeframe,"DERIVED_15M_TWELVE_DATA",derived));
+        var existing = new HashSet<>(db.query("""
+                SELECT open_time FROM market_candles
+                WHERE asset_id=? AND timeframe=? AND open_time BETWEEN ? AND ?
+                """, (row,index) -> row.getTimestamp(1).toInstant(),
+                id,timeframe,Timestamp.from(derived.getFirst().openTime()),Timestamp.from(derived.getLast().openTime())));
+        int computed = derived.size();
+        derived.removeIf(bar -> existing.contains(bar.openTime()));
+        if (derived.isEmpty()) return new HistoryService.ImportResult(symbol,0,computed);
+        var imported = history.importBars(new HistoryService.ImportRequest(symbol,(String)asset.get("name"),(String)asset.get("asset_type"),(String)asset.get("currency"),timeframe,"DERIVED_15M_TWELVE_DATA",derived));
+        return new HistoryService.ImportResult(symbol, imported.inserted(), imported.skipped() + computed - derived.size());
     }
 }
