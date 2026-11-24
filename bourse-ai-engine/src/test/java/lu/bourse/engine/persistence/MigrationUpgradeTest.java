@@ -5,7 +5,7 @@ import java.sql.*;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
-/** Upgrade a populated V7 schema through V20 in isolation; never alters the application's schema. */
+/** Upgrade a populated V7 schema through V22 in isolation; never alters the application's schema. */
 class MigrationUpgradeTest {
     @Test void v8PreservesExistingMarksAndBackfillsPolicyAndFxTimestamp()throws Exception{
         String configured=System.getenv("BOURSE_TEST_DB_URL"),url=configured==null||configured.isBlank()?"jdbc:h2:mem:upgrade_"+UUID.randomUUID()+";MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1":configured;
@@ -21,10 +21,19 @@ class MigrationUpgradeTest {
                 sql.executeUpdate("INSERT INTO portfolios(id,name,base_currency,initial_capital,max_loss_amount) VALUES (1,'Legacy','EUR',1000,100)");
                 sql.executeUpdate("INSERT INTO positions(id,portfolio_id,asset_id,quantity,average_entry_quote,remaining_cost_base,horizon,signal_timeframe,opened_at,status) VALUES (1,1,1,1,100,90,'LONG','1d',TIMESTAMP WITH TIME ZONE '2026-11-19 14:00:00+00','OPEN')");
                 sql.executeUpdate("INSERT INTO position_marks(position_id,price_quote,fx_to_base,observed_at,source) VALUES (1,95,0.9,TIMESTAMP WITH TIME ZONE '2026-11-19 15:00:00+00','LEGACY')");
+                String facts = "INSERT INTO financial_facts(asset_id,concept,value,unit,period_start,period_end,filed_date,form_type,accession_number,source) VALUES ";
+                String annual = "(1,'Revenues',100,'USD',DATE '2025-01-01',DATE '2025-12-31',DATE '2026-02-01','10-K','test-accession','SEC_EDGAR')";
+                String quarter = "(1,'Revenues',25,'USD',DATE '2025-10-01',DATE '2025-12-31',DATE '2026-02-01','10-K','test-accession','SEC_EDGAR')";
+                String instant = "(1,'Assets',40,'USD',NULL,DATE '2025-12-31',DATE '2026-02-01','10-K','test-accession','SEC_EDGAR')";
+                sql.executeUpdate(facts + annual);
                 Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().migrate();
+                assertThat(sql.executeUpdate(facts + quarter + " ON CONFLICT DO NOTHING")).isEqualTo(1);
+                assertThat(sql.executeUpdate(facts + annual + " ON CONFLICT DO NOTHING")).isZero();
+                assertThat(sql.executeUpdate(facts + instant + " ON CONFLICT DO NOTHING")).isEqualTo(1);
+                assertThat(sql.executeUpdate(facts + instant + " ON CONFLICT DO NOTHING")).isZero();
                 try(var rows=sql.executeQuery("SELECT price_quote,observed_at,fx_observed_at FROM position_marks WHERE position_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getBigDecimal(1)).isEqualByComparingTo("95");assertThat(rows.getTimestamp(3)).isEqualTo(rows.getTimestamp(2));}
                 try(var rows=sql.executeQuery("SELECT calendar_code FROM asset_market_policies WHERE asset_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getString(1)).isEqualTo("US_EQUITIES");}
-                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("20");
+                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("22");
             }finally{connection.setSchema("PUBLIC".equals(connection.getMetaData().getDatabaseProductName())?"PUBLIC":connection.getMetaData().getDatabaseProductName().equals("H2")?"PUBLIC":"public");connection.createStatement().execute("DROP SCHEMA \""+schema+"\" CASCADE");}
         }
     }

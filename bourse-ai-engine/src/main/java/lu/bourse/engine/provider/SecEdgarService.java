@@ -41,21 +41,26 @@ public class SecEdgarService {
       if(end.isEmpty()||filed.isEmpty()||accn.isEmpty()||!x.has("val"))continue;
       LocalDate endDate=LocalDate.parse(end),filedDate=LocalDate.parse(filed);
       if(endDate.isBefore(since))continue;
-      Integer count=jdbc.queryForObject("SELECT count(*) FROM financial_facts WHERE asset_id=? AND concept=? AND accession_number=? AND period_end=? AND unit=?",Integer.class,asset.getId(),concept,accn,java.sql.Date.valueOf(endDate),unit);
-      if(count!=null && count>0)continue;
       LocalDate start=x.hasNonNull("start")?LocalDate.parse(x.path("start").asText()):null;
-      try{jdbc.update("INSERT INTO financial_facts(asset_id,concept,value,unit,period_start,period_end,filed_date,form_type,accession_number,source) VALUES (?,?,?,?,?,?,?,?,?,?)",
-       asset.getId(),concept,new BigDecimal(x.path("val").asText()),unit,start==null?null:java.sql.Date.valueOf(start),java.sql.Date.valueOf(endDate),java.sql.Date.valueOf(filedDate),form,accn,"SEC_EDGAR");inserted++;}
-      catch(org.springframework.dao.DuplicateKeyException ignored){}
+      if (!validPeriod(start, endDate, filedDate)) continue;
+      inserted+=jdbc.update("""
+       INSERT INTO financial_facts(asset_id,concept,value,unit,period_start,period_end,filed_date,form_type,accession_number,source)
+       VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING
+       """,asset.getId(),concept,new BigDecimal(x.path("val").asText()),unit,
+       start==null?null:java.sql.Date.valueOf(start),java.sql.Date.valueOf(endDate),
+       java.sql.Date.valueOf(filedDate),form,accn,"SEC_EDGAR");
      }
     }
    }
    jobs.end(job,inserted,null);return new SecResult(symbol,cikValue,inserted);
   }catch(Exception e){jobs.end(job,0,e.getMessage()==null?"Failed":e.getMessage());throw e;}
  }
+ static boolean validPeriod(LocalDate start, LocalDate end, LocalDate filed) {
+  return (start == null || !start.isAfter(end)) && !end.isAfter(filed);
+ }
  public List<Fact> latest(String symbol){
   if(symbol==null||!symbol.matches("[A-Za-z0-9._-]{1,40}"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol");
-  return jdbc.query("SELECT f.concept,f.value,f.unit,f.period_start,f.period_end,f.filed_date,f.form_type,f.accession_number FROM financial_facts f JOIN assets a ON a.id=f.asset_id WHERE a.symbol=? ORDER BY f.filed_date DESC,f.period_end DESC LIMIT 100",
+  return jdbc.query("SELECT f.concept,f.value,f.unit,f.period_start,f.period_end,f.filed_date,f.form_type,f.accession_number FROM financial_facts f JOIN assets a ON a.id=f.asset_id WHERE a.symbol=? ORDER BY f.filed_date DESC,f.period_end DESC,f.period_start DESC NULLS LAST,f.id DESC LIMIT 100",
     (r,i)->new Fact(r.getString(1),r.getBigDecimal(2),r.getString(3),r.getDate(4)==null?null:r.getDate(4).toLocalDate(),r.getDate(5).toLocalDate(),r.getDate(6).toLocalDate(),r.getString(7),r.getString(8)),symbol.toUpperCase(Locale.ROOT));
  }
 }
