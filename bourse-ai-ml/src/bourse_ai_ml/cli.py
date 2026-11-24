@@ -8,8 +8,9 @@ import uuid
 import psycopg
 from . import repository as db
 from .batch import execute
-from .domain import DatasetSpec, DataError, HORIZONS
+from .domain import DatasetSpec, DataError, HORIZONS, utc
 from .reporting import export
+from .market import read_market
 from .training import FEATURE_SETS
 
 
@@ -32,6 +33,12 @@ def main(argv=None) -> int:
     demo.add_argument("--horizon",choices=HORIZONS,default="MONTH")
     demo.add_argument("--cost-bps",type=float,default=20.)
     demo.add_argument("--output",type=Path,default=Path("output"))
+    coverage = commands.add_parser("market-coverage", help="Contrôler la couverture des cours PostgreSQL")
+    coverage.add_argument("--start", type=date.fromisoformat, required=True)
+    coverage.add_argument("--as-of", type=utc, required=True)
+    coverage.add_argument("--symbols", nargs="+", default=[])
+    coverage.add_argument("--horizon", choices=HORIZONS, default="MONTH")
+    coverage.add_argument("--cost-bps", type=float, default=20.)
     commands.add_parser("status",help="Voir les derniers calculs du batch")
     report = commands.add_parser("report",help="Réexporter un résultat terminé sans réentraîner")
     report.add_argument("run_id",type=uuid.UUID)
@@ -43,6 +50,9 @@ def main(argv=None) -> int:
             if args.command == "init-db":
                 db.initialize(conn)
                 emit({"status":"READY","schema":"bourse_ml","backend_tables_modified":False})
+            elif args.command == "market-coverage":
+                dataset = read_market(conn, args.start, args.as_of, args.horizon, args.cost_bps, args.symbols)
+                emit({"source": "POSTGRES_MARKET_CANDLES", "coverage": dataset.coverage})
             elif args.command == "status":
                 emit(db.status(conn))
             elif args.command == "report":
