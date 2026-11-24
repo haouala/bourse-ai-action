@@ -61,6 +61,10 @@ public class ProviderQuotaService {
             .toList();
     }
 
+    public Usage usage(MarketProvider provider) {
+        return transaction.execute(status -> usage(provider, clock.instant(), lock(provider)));
+    }
+
     private Instant lock(MarketProvider provider) {
         return jdbc.queryForObject("SELECT blocked_until FROM provider_quota_locks WHERE provider=? FOR UPDATE",
                 (rs, row) -> rs.getTimestamp(1) == null ? null : rs.getTimestamp(1).toInstant(), provider.name());
@@ -100,5 +104,9 @@ public class ProviderQuotaService {
     private record Window(int used, Instant oldest) {}
     public record Usage(MarketProvider provider, String dailyWindow, int dailyLimit, int dailyUsed,
                         int dailyRemaining, int minuteLimit, int minuteUsed, int minuteRemaining,
-                        boolean enabled, Instant blockedUntil, Instant nextAvailableAt) {}
+                        boolean enabled, Instant blockedUntil, Instant nextAvailableAt) {
+        public boolean canCall(Instant now) {
+            return enabled && nextAvailableAt != null && !nextAvailableAt.isAfter(now);
+        }
+    }
 }

@@ -3,6 +3,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lu.bourse.engine.service.HistoryService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -11,10 +12,11 @@ import java.time.*;
 import java.util.*;
 @Service
 public class TwelveDataImportService {
+ private final JdbcTemplate jdbc;
  private final ProviderHttp http; private final HistoryService history; private final ImportJobService jobs;
  @Value("${market.twelve-data.base-url}") private String base;
  @Value("${market.twelve-data.api-key:}") private String key;
- public TwelveDataImportService(ProviderHttp http,HistoryService history,ImportJobService jobs){this.http=http;this.history=history;this.jobs=jobs;}
+ public TwelveDataImportService(ProviderHttp http,HistoryService history,ImportJobService jobs,JdbcTemplate jdbc){this.jdbc=jdbc;this.http=http;this.history=history;this.jobs=jobs;}
  public HistoryService.ImportResult sync(String rawSymbol,int years){
   if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}") || years<1 || years>10)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol or years");
   if(key.isBlank())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Set TWELVE_DATA_API_KEY in environment");
@@ -37,6 +39,18 @@ public class TwelveDataImportService {
    }
    if(bars.isEmpty())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Only incomplete candles returned");
    HistoryService.ImportResult result=history.importBars(new HistoryService.ImportRequest(symbol, doc.path("meta").path("name").asText(symbol),"STOCK",currency,"1d","TWELVE_DATA",bars));
+   String mic = doc.path("meta").path("mic_code").asText("").toUpperCase(Locale.ROOT);
+   if (mic.matches("[A-Z0-9]{4}")) {
+    jdbc.update("""
+     INSERT INTO asset_provider_symbols(asset_id,provider,provider_symbol,exchange_mic)
+     SELECT id,'TWELVE_DATA',symbol,? FROM assets WHERE symbol=?
+     ON CONFLICT DO NOTHING
+     """,mic,symbol);
+    jdbc.update("""
+     UPDATE asset_provider_symbols SET exchange_mic=?,updated_time=CURRENT_TIMESTAMP
+     WHERE provider='TWELVE_DATA' AND asset_id=(SELECT id FROM assets WHERE symbol=?)
+     """,mic,symbol);
+   }
    jobs.end(job,result.inserted(),null);return result;
   }catch(Exception e){jobs.end(job,0,e.getMessage()==null?"Failed":e.getMessage());throw e;}
  }
