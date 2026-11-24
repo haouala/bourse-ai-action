@@ -19,8 +19,9 @@ public class MarketTaskService {
     private final JdbcTemplate db; private final TwelveDataSeriesService series; private final Clock clock;
     private final TransactionTemplate transaction;
     private final ProviderQuotaService quotas;
+    private final MarketAnalysisService analyses;
     private final LocalCandleAggregationService aggregation;
-    public MarketTaskService(JdbcTemplate db,TwelveDataSeriesService series,Clock clock,PlatformTransactionManager manager,LocalCandleAggregationService aggregation,ProviderQuotaService quotas){this.quotas=quotas;this.aggregation=aggregation;this.db=db;this.series=series;this.clock=clock;transaction=new TransactionTemplate(manager);}
+    public MarketTaskService(JdbcTemplate db,TwelveDataSeriesService series,Clock clock,PlatformTransactionManager manager,LocalCandleAggregationService aggregation,ProviderQuotaService quotas,MarketAnalysisService analyses){this.analyses=analyses;this.quotas=quotas;this.aggregation=aggregation;this.db=db;this.series=series;this.clock=clock;transaction=new TransactionTemplate(manager);}
     public List<Map<String,Object>> list(){return db.queryForList("SELECT t.*,a.symbol FROM market_sync_tasks t JOIN assets a ON a.id=t.asset_id ORDER BY t.id DESC LIMIT 200");}
     /** Claim under a short DB lock; never keep the transaction open during remote HTTP. */
     public Map<String,Object> runNext(){
@@ -56,8 +57,9 @@ public class MarketTaskService {
             var asset=db.queryForList("SELECT a.*,w.provider_symbol FROM assets a JOIN watchlist w ON a.id=w.asset_id WHERE a.id=?",task.get("asset_id")).getFirst();
             String timeframe=(String)task.get("timeframe");
             var result=Set.of("30m","1h").contains(timeframe)?aggregation.sync(asset,timeframe):series.sync(asset,timeframe);
+            var analysis = analyses.refresh(((Number) asset.get("id")).longValue(), result.symbol(), timeframe);
             finish(id,"SUCCEEDED",result.inserted(),null,now);
-            return Map.of("taskId",id,"status","SUCCEEDED","inserted",result.inserted(),"skipped",result.skipped());
+            return Map.of("taskId",id,"status","SUCCEEDED","inserted",result.inserted(),"skipped",result.skipped(),"analysis",analysis);
         }catch(QuotaExceededException e){
             Instant retry=e.retryAt()==null?now.plusSeconds(86400):e.retryAt().plusSeconds(1);
             finish(id,"DEFERRED",0,"LOCAL_QUOTA",retry);
