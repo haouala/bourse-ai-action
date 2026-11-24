@@ -75,24 +75,28 @@ public class WatchlistService {
     @Transactional public int enqueue(){
         db.queryForObject("SELECT id FROM watchlist_guard WHERE id=1 FOR UPDATE",Integer.class);
         Instant now=clock.instant(); int count=0;
-        for(var row:list())if(Boolean.TRUE.equals(row.get("enabled")))for(String code:List.of("15m","30m","1h","1d")){
-            var state=calendars.state(((Number)row.get("asset_id")).longValue(),Timeframe.parse(code).duration(),now);
-            if(!state.marketState().equals("OPEN")){
-                if(!state.marketState().equals("CLOSED")||state.expectedClose()==null)continue;
-                // One deterministic catch-up slot after each session, not a request every weekend quarter-hour.
-                long id=((Number)row.get("asset_id")).longValue();
-                Instant slot=state.expectedClose();
-                if(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE asset_id=? AND timeframe=? AND slot_time=?",Integer.class,id,code,Timestamp.from(slot))==0){db.update("INSERT INTO market_sync_tasks(asset_id,timeframe,slot_time,next_attempt_at) VALUES (?,?,?,?)",id,code,Timestamp.from(slot),Timestamp.from(now));count++;}
-                continue;
+        for (var row : list()) {
+            if (!Boolean.TRUE.equals(row.get("enabled"))) continue;
+            long asset = ((Number) row.get("asset_id")).longValue();
+            for (String code : List.of("15m", "30m", "1h", "1d")) {
+                var state = calendars.state(asset, Timeframe.parse(code).duration(), now);
+                Instant slot = completedSlot(state);
+                if (slot == null) continue;
+                count += db.update("""
+                        INSERT INTO market_sync_tasks(asset_id,timeframe,slot_time,next_attempt_at)
+                        VALUES (?,?,?,?) ON CONFLICT DO NOTHING
+                        """, asset, code, Timestamp.from(slot), Timestamp.from(now));
             }
-            long seconds=Timeframe.parse(code).duration().toSeconds();
-            Instant slot=Instant.ofEpochSecond(Math.floorDiv(now.getEpochSecond(),seconds)*seconds);
-            long asset=((Number)row.get("asset_id")).longValue();
-            if(db.queryForObject("SELECT COUNT(*) FROM market_sync_tasks WHERE asset_id=? AND timeframe=? AND slot_time=?",Integer.class,asset,code,Timestamp.from(slot))>0)continue;
-            db.update("INSERT INTO market_sync_tasks(asset_id,timeframe,slot_time,next_attempt_at) VALUES (?,?,?,?)",asset,code,Timestamp.from(slot),Timestamp.from(now));count++;
         }
         return count;
     }
+    static Instant completedSlot(lu.bourse.engine.calendar.MarketCalendarService.State state) {
+        return switch (state.marketState()) {
+            case "OPEN", "CLOSED" -> state.expectedClose();
+            default -> null;
+        };
+    }
+
     public static boolean sessionOpen(Map<String,Object> row,Instant now){
         if(row.get("asset_type").equals("CRYPTO"))return true;
         var local=now.atZone(ZoneId.of((String)row.get("market_zone")));

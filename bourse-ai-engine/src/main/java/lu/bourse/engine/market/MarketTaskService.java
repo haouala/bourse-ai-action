@@ -27,7 +27,24 @@ public class MarketTaskService {
         Instant now=clock.instant();
         boolean allowProvider = quotas.usage(MarketProvider.TWELVE_DATA).canCall(clock.instant());
         Map<String,Object> task=transaction.execute(status->{
-            var rows=db.queryForList("SELECT t.* FROM market_sync_tasks t JOIN watchlist w ON w.asset_id=t.asset_id WHERE w.enabled=TRUE AND (? OR t.timeframe IN ('30m','1h')) AND ((t.status IN ('PENDING','DEFERRED') AND t.next_attempt_at<=?) OR (t.status='RUNNING' AND t.lease_until<=?)) ORDER BY t.next_attempt_at,t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED",allowProvider,Timestamp.from(now),Timestamp.from(now));
+            db.queryForObject("SELECT id FROM watchlist_guard WHERE id=1 FOR UPDATE", Integer.class);
+            var rows=db.queryForList("""
+                    SELECT t.* FROM market_sync_tasks t JOIN watchlist w ON w.asset_id=t.asset_id
+                    WHERE w.enabled=TRUE AND (? OR t.timeframe IN ('30m','1h'))
+                      AND ((t.status IN ('PENDING','DEFERRED') AND t.next_attempt_at<=?)
+                        OR (t.status='RUNNING' AND t.lease_until<=?))
+                      AND NOT EXISTS (
+                        SELECT 1 FROM market_sync_tasks running
+                        WHERE running.asset_id=t.asset_id AND running.timeframe=t.timeframe
+                          AND running.status='RUNNING' AND running.lease_until>?
+                      )
+                      AND (t.timeframe NOT IN ('30m','1h') OR NOT EXISTS (
+                        SELECT 1 FROM market_sync_tasks source
+                        WHERE source.asset_id=t.asset_id AND source.timeframe='15m'
+                          AND source.slot_time=t.slot_time AND source.status IN ('PENDING','DEFERRED','RUNNING')
+                      ))
+                    ORDER BY t.next_attempt_at,t.id LIMIT 1 FOR UPDATE
+                    """,allowProvider,Timestamp.from(now),Timestamp.from(now),Timestamp.from(now));
             if(rows.isEmpty())return null;
             var row=rows.getFirst();
             db.update("UPDATE market_sync_tasks SET status='RUNNING',lease_until=?,attempts=attempts+1,updated_time=CURRENT_TIMESTAMP WHERE id=?",Timestamp.from(now.plusSeconds(600)),row.get("id"));
