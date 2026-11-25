@@ -1,6 +1,9 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.*
 import lu.bourse.mobile.ui.theme.Rising
 import lu.bourse.mobile.ui.theme.RiskAccent
@@ -122,72 +125,94 @@ fun AdminScreen(config: ConnectionConfig) {
             }
         }
 
-        if (section == "system") Panel("Disponibilité") {
-            KeyValue("Serveur depuis cet appareil", server)
-            KeyValue("Backend", adminState(data?.text("backend")))
-            KeyValue("PostgreSQL", adminState(data?.text("database")))
-            data?.text("checkedAt")?.let { KeyValue("Vérifié le", localTime(it)) }
-        }
-        if (section == "repair") RepairPanel(repair)
-        if (section == "market") CoveragePanel(market)
-        if (section == "batches") {
-            Panel("Batchs et files de travail") {
-                if (batches.isEmpty()) Text("Indisponible")
-                batches.forEach { row ->
-                    val label = when (row.text("name")) {
-                        "MARKET_SYNC" -> "Synchronisation marché"
-                        "RESEARCH" -> "Analyse de recherche"
-                        "INFORMATION_AI" -> "Analyse des informations"
-                        "GDELT" -> "Collecte GDELT"
-                        else -> display(row.text("name"))
+        tiles.firstOrNull { it.key == section }?.let { tile ->
+            AlertDialog(
+                onDismissRequest = { section = null },
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(tile.title)
+                        Text(adminState(tile.status), color = adminTint(tile.status),
+                            style = MaterialTheme.typography.labelLarge)
                     }
-                    KeyValue(label, adminState(row.text("state")))
-                    Text("Dernier succès : ${localTime(row.text("lastSuccess"))}")
-                    Text("Dernière activité : ${localTime(row.text("lastActivity"))}")
-                    if (row.text("state") != "UNKNOWN") {
-                        Text("${number(row, "due")} en retard · ${number(row, "expired")} exécutions expirées · ${number(row, "failed24h")} échecs / 24 h")
+                },
+                text = {
+                    Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                        if (section == "system") Panel("Disponibilité") {
+                            KeyValue("Serveur depuis cet appareil", server)
+                            KeyValue("Backend", adminState(data?.text("backend")))
+                            KeyValue("PostgreSQL", adminState(data?.text("database")))
+                            data?.text("checkedAt")?.let { KeyValue("Vérifié le", localTime(it)) }
+                        }
+                        if (section == "repair") RepairPanel(repair)
+                        if (section == "market") CoveragePanel(market)
+                        if (section == "batches") {
+                            Panel("Batchs et files de travail") {
+                                if (batches.isEmpty()) Text("Indisponible")
+                                batches.forEach { row ->
+                                    val label = when (row.text("name")) {
+                                        "MARKET_SYNC" -> "Synchronisation marché"
+                                        "RESEARCH" -> "Analyse de recherche"
+                                        "INFORMATION_AI" -> "Analyse des informations"
+                                        "GDELT" -> "Collecte GDELT"
+                                        else -> display(row.text("name"))
+                                    }
+                                    KeyValue(label, adminState(row.text("state")))
+                                    Text("Dernier succès : ${localTime(row.text("lastSuccess"))}")
+                                    Text("Dernière activité : ${localTime(row.text("lastActivity"))}")
+                                    if (row.text("state") != "UNKNOWN") {
+                                        Text("${number(row, "due")} en retard · ${number(row, "expired")} exécutions expirées · ${number(row, "failed24h")} échecs / 24 h")
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
+                        }
+                        if (section == "providers") {
+                            Panel("Imports fournisseurs") {
+                                when {
+                                    data?.field("providers") == null -> Text("Indisponible")
+                                    providers.isEmpty() -> Text("Aucun import enregistré.")
+                                    else -> providers.forEach { row ->
+                                        KeyValue(display(row.text("code")), "${number(row, "successful24h")} réussis · ${number(row, "failed24h")} en échec / 24 h")
+                                        Text("Dernier succès : ${localTime(row.text("lastSuccess"))}")
+                                        Text("Dernière activité : ${localTime(row.text("lastActivity"))}")
+                                    }
+                                }
+                            }
+                        }
+                        if (section == "ml") {
+                            Panel("Dernier entraînement ML") {
+                                if (ml == null) Text("Indisponible") else {
+                                    KeyValue("Déclenchement", "Manuel")
+                                    KeyValue("Dernier calcul", localTime(ml.text("lastRun")))
+                                    ml.text("lastRun")?.let {
+                                        Text("Horizon ${display(ml.text("horizon"))} · ${number(ml, "predictions")} estimations")
+                                        Text("Date limite des données : ${localTime(ml.text("dataCutoff"))}")
+                                    }
+                                }
+                            }
+                        }
                     }
-                    HorizontalDivider()
-                }
-            }
-        }
-        if (section == "providers") {
-            Panel("Imports fournisseurs") {
-                when {
-                    data?.field("providers") == null -> Text("Indisponible")
-                    providers.isEmpty() -> Text("Aucun import enregistré.")
-                    else -> providers.forEach { row ->
-                        KeyValue(display(row.text("code")), "${number(row, "successful24h")} réussis · ${number(row, "failed24h")} en échec / 24 h")
-                        Text("Dernier succès : ${localTime(row.text("lastSuccess"))}")
-                        Text("Dernière activité : ${localTime(row.text("lastActivity"))}")
-                    }
-                }
-            }
-        }
-        if (section == "ml") {
-            Panel("Dernier entraînement ML") {
-                if (ml == null) Text("Indisponible") else {
-                    KeyValue("Déclenchement", "Manuel")
-                    KeyValue("Dernier calcul", localTime(ml.text("lastRun")))
-                    ml.text("lastRun")?.let {
-                        Text("Horizon ${display(ml.text("horizon"))} · ${number(ml, "predictions")} estimations")
-                        Text("Date limite des données : ${localTime(ml.text("dataCutoff"))}")
-                    }
-                }
-            }
+                },
+                confirmButton = { Button(onClick = { section = null }) { Text("Retour aux tuiles") } },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(.94f),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            )
         }
     }
 }
 
 private data class AdminTileModel(val key: String, val title: String, val status: String, val detail: String? = null)
 
-@Composable
-private fun AdminTile(tile: AdminTileModel, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val tint = when (tile.status) {
+private fun adminTint(status: String) = when (status) {
         "UP", "OK", "SUCCESS" -> Rising
         "DOWN", "FAILED", "LATE", "ISSUES", "INVALID_CANDLES" -> Falling
         else -> RiskAccent
-    }
+}
+
+@Composable
+private fun AdminTile(tile: AdminTileModel, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tint = adminTint(tile.status)
     OutlinedCard(onClick = onClick, modifier = modifier.heightIn(min = 104.dp).testTag("admin-tile-${tile.key}"),
         border = BorderStroke(if (selected) 2.dp else 1.dp, tint),
         colors = CardDefaults.outlinedCardColors(containerColor = tint.copy(alpha = if (selected) .18f else .08f))) {
