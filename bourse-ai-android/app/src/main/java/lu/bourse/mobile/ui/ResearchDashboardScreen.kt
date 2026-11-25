@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.math.BigDecimal
+import lu.bourse.mobile.ui.theme.Rising
+import lu.bourse.mobile.ui.theme.RiskAccent
+import lu.bourse.mobile.ui.theme.ResearchAccent
 import lu.bourse.mobile.AppStore
 import lu.bourse.mobile.api
 import lu.bourse.mobile.data.*
@@ -80,9 +83,9 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 }
             }
             DataBlock(store, "$prefix:score", decode = { it.objectValue() }) { r ->
-                KeyValue("Opportunité", (r.text("opportunityScore") ?: "Indisponible") + " / 100")
-                KeyValue("Risque (100 = élevé)", (r.text("riskScore") ?: "Indisponible") + " / 100")
-                KeyValue("Fiabilité", r.text("reliabilityScore")?.plus(" / 100") ?: "Non établie")
+                ScoreMeter("Opportunité", r.decimal("opportunityScore"), Rising)
+                ScoreMeter("Risque (100 = élevé)", r.decimal("riskScore"), RiskAccent)
+                ScoreMeter("Fiabilité", r.decimal("reliabilityScore"), ResearchAccent)
                 KeyValue("État du calcul", display(r.text("status")))
             }
             DataBlock(store, "$prefix:regime", decode = { it.objectValue() }) { r ->

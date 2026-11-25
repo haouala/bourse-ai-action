@@ -137,3 +137,14 @@ fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, opera
         Button(enabled = resource?.loading != true, onClick = { try { onSubmit(values.toMap()) } catch (e: IllegalArgumentException) { validation = e.message ?: "Vérifier les champs" } }) { Text(submitLabel) }
     }, dismissButton = { TextButton(enabled = resource?.loading != true, onClick = onDismiss) { Text("Annuler") } })
 }
+
+@Composable
+fun ScoreMeter(label: String, value: BigDecimal?, accent: androidx.compose.ui.graphics.Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        KeyValue(label, value?.let { "${it.stripTrailingZeros().toPlainString()} / 100" } ?: "Indisponible")
+        value?.let { score ->
+            LinearProgressIndicator(progress = { (score.toFloat() / 100).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(6.dp), color = accent)
+        }
+    }
+}
