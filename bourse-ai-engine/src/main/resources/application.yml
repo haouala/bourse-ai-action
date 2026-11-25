@@ -67,6 +67,9 @@ orchestrator:
     cron: "${ORCHESTRATOR_DAILY_REPAIR_CRON:0 0 17 * * MON-FRI}"
     max-repairs: ${ORCHESTRATOR_DAILY_REPAIR_MAX_REPAIRS:5}
 
+admin:
+  monitor-token: ${ADMIN_MONITOR_TOKEN:}
+
 news:
   bulk:
     enabled: ${NEWS_BULK_ENABLED:false}
