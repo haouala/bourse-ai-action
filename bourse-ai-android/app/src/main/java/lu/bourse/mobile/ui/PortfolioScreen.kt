@@ -1,8 +1,8 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
@@ -107,6 +108,8 @@ private fun PortfolioAssetPicker(store: AppStore, cancel: () -> Unit, select: (A
     AlertDialog(
         onDismissRequest = cancel,
         title = { Text("Choisir un actif") },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.94f),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(query, { query = it.take(80) },
@@ -118,8 +121,8 @@ private fun PortfolioAssetPicker(store: AppStore, cancel: () -> Unit, select: (A
                         Text(if (all.isEmpty()) "Ajoutez d’abord un actif dans Marchés." else "Aucun actif correspondant.")
                     } else {
                         Text("${matches.size} actif(s)", style = MaterialTheme.typography.labelMedium)
-                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-                            items(matches, key = { it.symbol }) { asset ->
+                        Column(Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())) {
+                            matches.forEach { asset ->
                                 TextButton(onClick = { select(asset) }, modifier = Modifier.fillMaxWidth()) {
                                     Text("${asset.symbol} · ${asset.name} · ${asset.currency}")
                                 }
