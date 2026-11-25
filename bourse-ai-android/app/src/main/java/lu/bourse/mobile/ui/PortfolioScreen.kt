@@ -1,6 +1,9 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -8,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
@@ -15,8 +19,15 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
-private fun tradeFields(includeSymbol: Boolean) = buildList {
-    if (includeSymbol) { add(InputField("symbol", "Symbole déjà enregistré au suivi")); add(InputField("horizon", "Horizon de suivi", "MEDIUM", options = listOf("SHORT", "MEDIUM", "LONG"))) }
+private val portfolioHorizons = linkedMapOf(
+    "SHORT" to "Court · bougies de 15 min",
+    "MEDIUM" to "Moyen · bougies de 1 h",
+    "LONG" to "Long · bougies de 1 jour",
+)
+
+private fun tradeFields(newPosition: Boolean) = buildList {
+    if (newPosition) add(InputField("horizon", "Intervalle du signal technique", "MEDIUM",
+        options = portfolioHorizons.keys.toList(), optionLabels = portfolioHorizons))
     else add(InputField("side", "Opération déjà exécutée", "SELL", options = listOf("SELL", "BUY")))
     add(InputField("quantity", "Quantité", numeric = true)); add(InputField("price", "Prix par unité dans la devise de l’actif", numeric = true)); add(InputField("fees", "Frais dans la devise de l’actif", "0", true))
     add(InputField("fx", "FX vers le portefeuille (1 si même devise)", numeric = true))
@@ -28,6 +39,7 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
     val config by store.config.collectAsStateWithLifecycle()
     val states by store.resources.collectAsStateWithLifecycle()
     var form by rememberSaveable { mutableStateOf<String?>(null) }
+    var buySymbol by rememberSaveable { mutableStateOf<String?>(null) }
     var chosen by rememberSaveable { mutableStateOf<Long?>(null) }
     var requestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
     val portfolio = config.portfolioId
@@ -40,13 +52,17 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
         else {
             Text("Portefeuille $portfolio", style = MaterialTheme.typography.titleLarge)
             DataBlock(store, "risk:$portfolio", decode = { it.objectValue() }) { risk -> RiskPanel(risk) }
-            Button(onClick = { openForm("buy") }, modifier = Modifier.fillMaxWidth()) { Text("Déclarer un achat effectué") }
+            Button(onClick = {
+                buySymbol = null
+                store.load("portfolio-assets", api("watchlist"))
+                openForm("choose-buy-asset")
+            }, modifier = Modifier.fillMaxWidth()) { Text("Déclarer un achat effectué") }
             OutlinedButton(onClick = { refresh() }) { Text("Actualiser les positions et le risque") }
             DataBlock(store, "positions:$portfolio", decode = ::positions) { all ->
                 if (all.isEmpty()) Note("Aucune position enregistrée.")
                 all.forEach { position -> Panel("${position.symbol} · ${if (position.status == "OPEN") "Position ouverte" else "Position clôturée"}") {
                     KeyValue("Quantité détenue", priceText(position.quantity)); KeyValue("Prix moyen d’entrée", priceText(position.entry, position.currency))
-                    KeyValue("Ouverture", dateLabel(position.openedAt)); Text("Horizon : ${position.horizon} · coût restant dans le portefeuille : ${amount(position.cost)}")
+                    KeyValue("Ouverture", dateLabel(position.openedAt)); Text("${portfolioHorizons[position.horizon] ?: position.horizon} · coût restant : ${amount(position.cost)}")
                     TextButton(onClick = { asset(position.symbol) }) { Text("Graphique et analyse de l’actif") }
                     if (position.status == "OPEN") {
                         OutlinedButton(onClick = { openForm("trade", position.id) }) { Text("Déclarer vente partielle ou nouvel achat") }
@@ -59,12 +75,20 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
         states["portfolio-write"]?.error?.let { if (form == null) Note(it, true) }
     }
     when(form) {
+        "choose-buy-asset" -> PortfolioAssetPicker(store, { form = null }) { selected ->
+            buySymbol = selected.symbol
+            form = "buy"
+        }
         "create" -> EditorDialog("Créer un portefeuille", listOf(InputField("name", "Nom", "Mon portefeuille"), InputField("currency", "Devise de référence", "EUR"), InputField("capital", "Capital total", "1000", true), InputField("loss", "Perte maximale sur la mise totale", "500", true)), store, "portfolio-write", { form = null }) { values ->
             store.mutate("portfolio-write", api("portfolios"), createPortfolio(values)) { result -> store.selectPortfolio(result.objectValue().id() ?: throw ContractFailure("Portefeuille créé sans identifiant")); form = null }
         }
         "select" -> EditorDialog("Choisir un portefeuille existant", listOf(InputField("id", "Identifiant positif", portfolio?.toString().orEmpty(), true)), store, "portfolio-write", { form = null }) { values -> val id = values.getValue("id").toLongOrNull()?.takeIf { it > 0 } ?: throw IllegalArgumentException("Identifiant invalide"); store.selectPortfolio(id); form = null }
-        "buy" -> if (portfolio != null) EditorDialog("Déclarer un achat déjà exécuté", tradeFields(true), store, "portfolio-write", { form = null }, "Enregistrer la déclaration") { values ->
-            store.mutate("portfolio-write", api("portfolios", portfolio, "positions"), declaredTrade(values, requestId)) { form = null; refresh() }
+        "buy" -> if (portfolio != null) buySymbol?.let { symbol ->
+            EditorDialog("Déclarer un achat · $symbol", tradeFields(true), store, "portfolio-write",
+                { form = "choose-buy-asset" }, "Enregistrer la déclaration") { values ->
+                store.mutate("portfolio-write", api("portfolios", portfolio, "positions"),
+                    declaredTrade(values + ("symbol" to symbol), requestId)) { form = null; refresh() }
+            }
         }
         "trade" -> if (portfolio != null) {
             val position = states["positions:$portfolio"]?.value?.let { runCatching { positions(it).firstOrNull { p -> p.id == chosen } }.getOrNull() }
@@ -76,6 +100,40 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
             store.mutate("portfolio-write", api("portfolios", portfolio, "positions", chosen!!, "mark"), priceMark(values), "PUT") { form = null; refresh() }
         }
     }
+}
+
+@Composable
+private fun PortfolioAssetPicker(store: AppStore, cancel: () -> Unit, select: (Asset) -> Unit) {
+    var query by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = cancel,
+        title = { Text("Choisir un actif") },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.94f),
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it.take(80) },
+                    label = { Text("Rechercher un symbole ou un nom") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("portfolio-symbol-search"))
+                DataBlock(store, "portfolio-assets", decode = ::assets) { all ->
+                    val matches = filterAssets(all, query, "ALL")
+                    if (matches.isEmpty()) {
+                        Text(if (all.isEmpty()) "Ajoutez d’abord un actif dans Marchés." else "Aucun actif correspondant.")
+                    } else {
+                        Text("${matches.size} actif(s)", style = MaterialTheme.typography.labelMedium)
+                        Column(Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())) {
+                            matches.forEach { asset ->
+                                TextButton(onClick = { select(asset) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("${asset.symbol} · ${asset.name} · ${asset.currency}")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = cancel) { Text("Annuler") } },
+    )
 }
 
 @Composable
