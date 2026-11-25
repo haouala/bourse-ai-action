@@ -7,8 +7,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -51,7 +49,10 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 if (result.points.isEmpty()) Text("Aucune clôture importée.")
                 else {
                     val prices = result.points.map { it.close }
-                    ResearchLineChart(prices, "Historique quotidien observé")
+                    MarketPlot("Historique quotidien observé",
+                        remember(result.points) { result.points.map { java.time.Instant.parse(it.date) } },
+                        listOf(PlotLine("Clôture", prices.map { it.toDouble() }, MaterialTheme.colorScheme.primary)),
+                        result.currency)
                     KeyValue("Premier / dernier prix",
                         priceText(prices.first(), result.currency) + " / " + priceText(prices.last(), result.currency))
                     KeyValue("Dernière observation", dateLabel(result.points.last().date))
@@ -186,29 +187,6 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 store.load("$prefix:score", api("scoring", symbol), mapOf("horizonDays" to horizon.toString()))
             }, modifier = Modifier.fillMaxWidth().testTag("refresh-research")
         ) { Text("Actualiser analyses et graphiques") }
-    }
-}
-
-/** Connects consecutive ACTUALLY OBSERVED daily closing prices. */
-@Composable
-private fun ResearchLineChart(prices: List<BigDecimal>, label: String) {
-    if (prices.isEmpty()) return
-    val yValues = normalizedPoints(prices)
-    val lineColor = MaterialTheme.colorScheme.primary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-    Canvas(Modifier.fillMaxWidth().height(170.dp).semantics { contentDescription = label }) {
-        repeat(4) { i ->
-            val y = size.height * (i + 1) / 5f
-            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
-        }
-        val path = Path()
-        yValues.forEachIndexed { i, v ->
-            val x = size.width * (i + 1) / (yValues.size + 1f)
-            val y = size.height * (.9f - .8f * v)
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        if (yValues.size == 1) drawCircle(lineColor, 4.dp.toPx(), Offset(size.width / 2, size.height / 2))
-        else drawPath(path, lineColor, style = Stroke(2.5.dp.toPx()))
     }
 }
 

@@ -130,7 +130,11 @@ class UiJourneysTest {
         compose.onNodeWithContentDescription("Guide de démarrage").performClick()
         compose.waitForIdle()
         capture("34-guide")
-        click("Commencer")
+        click("Continuer")
+        node("Les graphiques et les analyses").assertIsDisplayed()
+        click("Continuer")
+        node("Vos limites de risque").assertIsDisplayed()
+        click("Ouvrir le tableau de bord")
         node("Tableau de bord").assertExists()
     }
 

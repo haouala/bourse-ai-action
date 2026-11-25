@@ -34,19 +34,12 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
     val context = LocalContext.current
     val preferences = remember(context) { context.getSharedPreferences("bourse-design", 0) }
     var guideOpen by rememberSaveable { mutableStateOf(firstUseGuide && !preferences.getBoolean("guideSeen", false)) }
-    if (guideOpen && alertRequest == 0) {
-        androidx.activity.compose.BackHandler {
-            preferences.edit().putBoolean("guideSeen", true).apply()
-            guideOpen = false
-        }
-        Scaffold { padding -> Box(Modifier.padding(padding)) {
-            WelcomeGuide {
-                preferences.edit().putBoolean("guideSeen", true).apply()
-                guideOpen = false
-            }
-        } }
-        return
+    val showWelcome = guideOpen && alertRequest == 0
+    fun finishGuide() {
+        preferences.edit().putBoolean("guideSeen", true).apply()
+        guideOpen = false
     }
+    androidx.activity.compose.BackHandler(enabled = showWelcome) { finishGuide() }
     var homeRefresh by remember { mutableIntStateOf(0) }
     val notice by store.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -60,14 +53,14 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
     LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
     LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
     val root = route in tabs.map { it.route } || route == "news" || route == "alerts"
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI", style = MaterialTheme.typography.titleLarge) }, actions = {
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { if (!showWelcome) TopAppBar(title = { Text("Bourse AI", style = MaterialTheme.typography.titleLarge) }, actions = {
         IconButton(onClick = { nav.navigate("news") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-news")) { Icon(Icons.Default.Article, "Actualités") }
         IconButton(onClick = { nav.navigate("alerts") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-alerts")) { Icon(Icons.Default.Notifications, "Alertes") }
         IconButton(onClick = { nav.navigate("guide") { launchSingleTop = true } }) { Icon(Icons.Default.HelpOutline, "Guide de démarrage") }
     }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
-        if (route != "guide") NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
+        if (route != "guide" && !showWelcome) NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
             if (tab.route == "home") {
                 if (route != "home" && !nav.popBackStack("home", inclusive = false)) nav.navigate("home") { launchSingleTop = true }
                 homeRefresh++
@@ -84,10 +77,10 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
             Surface(color = if (config.demo) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
-            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f),
+            if (showWelcome) WelcomeGuide(::finishGuide) else NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f),
                 enterTransition = { fadeIn(tween(150)) }, exitTransition = { fadeOut(tween(100)) },
                 popEnterTransition = { fadeIn(tween(150)) }, popExitTransition = { fadeOut(tween(100)) }) {
-                composable("guide") { WelcomeGuide { nav.popBackStack() } }
+                composable("guide") { WelcomeGuide { nav.popBackStack("home", inclusive = false) } }
                 composable("home") {
                     HomeScreen(store, homeRefresh, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") }, { nav.navigate("guide") }, { nav.navigate("asset/${Uri.encode(it)}") })
                 }
