@@ -2,6 +2,9 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -48,24 +51,11 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice?.id) {
         val current=notice ?: return@LaunchedEffect
-        if(current.severity != "ERROR") {
-            snackbar.showSnackbar(current.message, withDismissAction = true,
-                duration = if (current.severity == "WARNING") SnackbarDuration.Long else SnackbarDuration.Short)
-            store.dismissNotice()
-        }
+        val message = current.requestId?.let { "${current.message} · Réf. $it" } ?: current.message
+        snackbar.showSnackbar(message, withDismissAction = true,
+            duration = if (current.severity == "INFO") SnackbarDuration.Short else SnackbarDuration.Long)
+        store.dismissNotice()
     }
-    if(notice?.severity == "ERROR") AlertDialog(
-        onDismissRequest = { store.dismissNotice() },
-        title = { Text("Une erreur est survenue") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(notice?.message.orEmpty())
-                notice?.code?.let { Text("Code : $it",style = MaterialTheme.typography.labelSmall) }
-                notice?.requestId?.let { Text("Référence : $it",style = MaterialTheme.typography.labelSmall) }
-            }
-        },
-        confirmButton = { TextButton(onClick = { store.dismissNotice() }) { Text("Fermer") } }
-    )
     LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
     LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
     val root = route in tabs.map { it.route } || route == "news" || route == "alerts"
@@ -84,7 +74,9 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
             Surface(color = if (config.demo) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
-            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
+            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f),
+                enterTransition = { fadeIn(tween(150)) }, exitTransition = { fadeOut(tween(100)) },
+                popEnterTransition = { fadeIn(tween(150)) }, popExitTransition = { fadeOut(tween(100)) }) {
                 composable("guide") { WelcomeGuide { nav.popBackStack() } }
                 composable("home") {
                     HomeScreen(store, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") })
