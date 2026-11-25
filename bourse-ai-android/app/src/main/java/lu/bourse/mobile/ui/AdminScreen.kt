@@ -171,7 +171,10 @@ private fun CoveragePanel(coverage: JsonObject?) {
                         Text("${number(row, "missing")} manquantes / ${number(row, "expected")} · ${number(row, "invalid")} incohérentes")
                         Text("Dernière attendue : ${display(row.text("latestExpected"))}")
                         Text("Dernière disponible : ${display(row.text("latestAvailable"))}")
-                        row.text("latestMissing")?.let { Text("Dernière manquante : $it", color = MaterialTheme.colorScheme.error) }
+                        val missing = row.field("missingDates")?.takeIf { it.isJsonArray }?.asJsonArray
+                            ?.mapNotNull { it.takeIf { date -> date.isJsonPrimitive }?.asString }.orEmpty()
+                        if (missing.isNotEmpty()) Text("Séances manquantes : ${missing.joinToString(", ")}",
+                            color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

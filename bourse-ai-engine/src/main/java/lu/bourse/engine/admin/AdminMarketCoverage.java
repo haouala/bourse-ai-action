@@ -7,6 +7,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -17,7 +18,7 @@ public class AdminMarketCoverage {
 
     public record Asset(String symbol, String assetType, String provider, String calendar, String state,
                         Integer expected, Integer missing, Integer invalid,
-                        LocalDate latestExpected, LocalDate latestAvailable, LocalDate latestMissing) {}
+                        LocalDate latestExpected, LocalDate latestAvailable, LocalDate latestMissing, List<LocalDate> missingDates) {}
     public record Coverage(int lookbackDays, int maxSessions, int assets, int unknownAssets,
                            long expected, long missing, long invalid, List<Asset> details) {}
 
@@ -68,7 +69,9 @@ public class AdminMarketCoverage {
                           OR low_price>closing OR volume<0 THEN 1 ELSE 0 END) AS invalid,
                     MAX(session_date) AS latest_expected,
                     MAX(CASE WHEN closing IS NOT NULL THEN session_date END) AS latest_available,
-                    MAX(CASE WHEN closing IS NULL THEN session_date END) AS latest_missing
+                    MAX(CASE WHEN closing IS NULL THEN session_date END) AS latest_missing,
+                    STRING_AGG(CASE WHEN closing IS NULL THEN CAST(session_date AS VARCHAR) END,
+                        ',' ORDER BY session_date DESC) AS missing_dates
                   FROM selected GROUP BY id
                 )
                 SELECT u.symbol,u.asset_type,u.provider,u.calendar_code,u.trading_status,u.coverage_end,c.*
@@ -87,9 +90,13 @@ public class AdminMarketCoverage {
             else if (provider == null) state = "UNQUALIFIED";
             else if (expected == null) state = "NO_SESSIONS";
             else state = missing > 0 || invalid > 0 ? "INCOMPLETE" : "OK";
+            String absent = row.getString("missing_dates");
+            List<LocalDate> missingDates = absent == null ? List.of() :
+                    Arrays.stream(absent.split(",")).map(LocalDate::parse).toList();
             return new Asset(row.getString("symbol"), type, provider, row.getString("calendar_code"), state,
                     expected, missing, invalid, row.getObject("latest_expected", LocalDate.class),
-                    row.getObject("latest_available", LocalDate.class), row.getObject("latest_missing", LocalDate.class));
+                    row.getObject("latest_available", LocalDate.class), row.getObject("latest_missing", LocalDate.class),
+                    missingDates);
         }, Timestamp.from(asOf), java.sql.Date.valueOf(today.minusDays(LOOKBACK_DAYS - 1)),
                 java.sql.Date.valueOf(today), Timestamp.from(asOf), MAX_SESSIONS);
         var assessed = assets.stream().filter(a -> "OK".equals(a.state()) || "INCOMPLETE".equals(a.state())).toList();

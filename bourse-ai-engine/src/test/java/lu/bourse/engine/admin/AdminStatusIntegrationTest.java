@@ -62,6 +62,7 @@ class AdminStatusIntegrationTest extends DatabaseIntegrationSupport {
                 .andExpect(jsonPath("$.database").value("UP"))
                 .andExpect(jsonPath("$.repair.state").value("LATE"))
                 .andExpect(jsonPath("$.market.details[0].latestMissing").value("2026-11-24"))
+                .andExpect(jsonPath("$.market.details[0].missingDates[0]").value("2026-11-24"))
                 .andExpect(jsonPath("$.market.details[0].missing").value(21));
 
         jdbc.update("""
