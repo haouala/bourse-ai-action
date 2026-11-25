@@ -110,7 +110,7 @@ fun JsonDetails(value: JsonElement, label: String = "Voir les preuves détaillé
     if (expanded) SelectionContainer { Text(GsonBuilder().setPrettyPrinting().create().toJson(value), style = MaterialTheme.typography.bodySmall) }
 }
 
-data class InputField(val key: String, val label: String, val initial: String = "", val numeric: Boolean = false, val options: List<String> = emptyList())
+data class InputField(val key: String, val label: String, val initial: String = "", val numeric: Boolean = false, val options: List<String> = emptyList(), val optionLabels: Map<String, String> = emptyMap())
 
 @Composable
 fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, operation: String, onDismiss: () -> Unit, submitLabel: String = "Enregistrer", onSubmit: (Map<String, String>) -> Unit) {
@@ -126,7 +126,7 @@ fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, opera
                 if (field.options.isEmpty()) OutlinedTextField(value = values[field.key].orEmpty(), onValueChange = { values[field.key] = it; validation = null }, label = { Text(field.label) }, keyboardOptions = KeyboardOptions(keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth().testTag("input-${field.key}"), singleLine = true)
                 else {
                     Text(field.label, style = MaterialTheme.typography.labelLarge)
-                    field.options.forEach { option -> Row { RadioButton(selected = values[field.key] == option, onClick = { values[field.key] = option }); TextButton(onClick = { values[field.key] = option }) { Text(option) } } }
+                    field.options.forEach { option -> Row { RadioButton(selected = values[field.key] == option, onClick = { values[field.key] = option }); TextButton(onClick = { values[field.key] = option }) { Text(field.optionLabels[option] ?: option) } } }
                 }
             }
             validation?.let { Note(it, true) }

@@ -91,9 +91,12 @@ fun AdminScreen(config: ConnectionConfig) {
                 }),
             AdminTileModel("market", "Qualité des cours", when {
                 market == null || market.id("expected") == 0L -> "UNKNOWN"
-                (market.id("missing") ?: 0) > 0 || (market.id("invalid") ?: 0) > 0 -> "ISSUES"
+                (market.id("invalid") ?: 0) > 0 -> "INVALID_CANDLES"
+                (market.id("missing") ?: 0) > 0 -> "MISSING_SESSIONS"
                 (market.id("unknownAssets") ?: 0) > 0 -> "INCOMPLETE"
                 else -> "OK"
+            }, market?.takeIf { (it.id("expected") ?: 0) > 0 }?.let {
+                "${number(it, "missing")} manquantes · ${number(it, "invalid")} incohérentes"
             }),
             AdminTileModel("repair", "Réparation", repair?.text("state") ?: "UNKNOWN"),
             AdminTileModel("batches", "Batchs", when {
@@ -176,13 +179,13 @@ fun AdminScreen(config: ConnectionConfig) {
     }
 }
 
-private data class AdminTileModel(val key: String, val title: String, val status: String)
+private data class AdminTileModel(val key: String, val title: String, val status: String, val detail: String? = null)
 
 @Composable
 private fun AdminTile(tile: AdminTileModel, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val tint = when (tile.status) {
         "UP", "OK", "SUCCESS" -> Rising
-        "DOWN", "FAILED", "LATE", "ISSUES" -> Falling
+        "DOWN", "FAILED", "LATE", "ISSUES", "INVALID_CANDLES" -> Falling
         else -> RiskAccent
     }
     OutlinedCard(onClick = onClick, modifier = modifier.heightIn(min = 104.dp).testTag("admin-tile-${tile.key}"),
@@ -191,6 +194,7 @@ private fun AdminTile(tile: AdminTileModel, selected: Boolean, modifier: Modifie
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(tile.title, style = MaterialTheme.typography.titleSmall)
             Text(adminState(tile.status), color = tint, style = MaterialTheme.typography.labelMedium)
+            tile.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }
@@ -262,6 +266,8 @@ private fun adminState(state: String?): String = when (state) {
     "PARTIAL", "INCOMPLETE" -> "Incomplet"
     "FAILED" -> "Échec"
     "ISSUES" -> "Échecs récents"
+    "MISSING_SESSIONS" -> "Séances manquantes"
+    "INVALID_CANDLES" -> "Bougies incohérentes"
     "NO_BACKLOG" -> "Aucune tâche en retard détectée"
     "UNQUALIFIED" -> "Fournisseur non qualifié"
     "CALENDAR_UNAVAILABLE" -> "Calendrier indisponible ou expiré"
