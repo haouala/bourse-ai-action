@@ -1,6 +1,9 @@
 package lu.bourse.mobile.ui
 
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +32,7 @@ fun display(value: String?) = value ?: "Non renseigné"
 
 @Composable
 fun Page(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.background))).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(title, style = MaterialTheme.typography.headlineMedium)
         subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         content()
@@ -39,7 +42,9 @@ fun Page(title: String, subtitle: String? = null, content: @Composable ColumnSco
 
 @Composable
 fun Panel(title: String, content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
+    OutlinedCard(Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()
@@ -62,7 +67,7 @@ fun Remote(store: AppStore, key: String, empty: String = "Aucune donnée disponi
     val resources by store.resources.collectAsStateWithLifecycle()
     val resource = resources[key]
     when {
-        resource?.loading == true -> { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Chargement…") }
+        resource?.loading == true -> { LinearProgressIndicator(Modifier.fillMaxWidth().height(5.dp)); Text("Chargement…", style = MaterialTheme.typography.labelMedium) }
         resource?.error != null -> Note(resource.error, true)
         resource?.value != null -> {
             if (resource.value.isJsonNull) Text(empty) else content(resource.value)
