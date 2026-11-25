@@ -29,3 +29,34 @@ def test_database_dates_are_serializable(capsys):
     from datetime import datetime,timezone
     cli.emit({'date':datetime(2026,1,1,tzinfo=timezone.utc)})
     assert json.loads(capsys.readouterr().out)['date'].endswith('+00:00')
+
+
+def test_train_requests_repair_before_reading_market_data(monkeypatch, capsys):
+    from contextlib import nullcontext
+    from io import BytesIO
+
+    calls = []
+    preparation = {"missing": 1, "repairs": [{"symbol": "NVDA", "status": "INSERTED"}]}
+
+    def repair(request, timeout):
+        calls.append("repair")
+        assert request.full_url == "http://localhost:8081/api/v1/orchestrator/repair-daily"
+        assert json.loads(request.data) == {
+            "symbols": ["NVDA"], "start": "2021-11-24", "asOf": "2026-11-24T23:00:00+00:00",
+            "maxRepairs": 2,
+        }
+        return BytesIO(json.dumps(preparation).encode())
+
+    def train(*args):
+        calls.append("train")
+        return {"predictions": []}
+
+    monkeypatch.setattr(cli.db, "connect", lambda: nullcontext(object()))
+    monkeypatch.setattr(cli, "urlopen", repair)
+    monkeypatch.setattr(cli, "execute_market", train)
+    assert cli.main([
+        "train-market", "--start", "2021-11-24", "--as-of", "2026-11-24T23:00:00Z",
+        "--symbols", "NVDA", "--repair-backend", "http://localhost:8081", "--max-repairs", "2",
+    ]) == 0
+    assert calls == ["repair", "train"]
+    assert json.loads(capsys.readouterr().out)["dailyRepair"] == preparation
