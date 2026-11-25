@@ -127,3 +127,9 @@ Les tests d'intégration effacent leurs tables de données : **ne jamais pointer
 
 Par défaut, aucun import n'est déclenché au démarrage. Les activations marché, RSS et X sont indépendantes. Le module social et les explications déterministes sont présents ; la classification sémantique par LLM, l'intégration du correctif podcasts et les notifications push restent des étapes ultérieures. Les routes de développement doivent être protégées avant toute exposition sur Internet.
 
+
+## Console d’administration Android
+
+Définir un jeton dédié `ADMIN_MONITOR_TOKEN` dans l’environnement du backend ou dans le fichier `.env` chargé par `start.sh`. Utiliser un secret aléatoire de 32 caractères minimum. Redémarrer le backend, puis ouvrir **Réglages → Administration** dans Android en mode serveur. Le jeton reste en mémoire sur l’écran et l’API renvoie un diagnostic en lecture seule. En production, utiliser HTTPS.
+
+Le contrôle des cours couvre jusqu’à 21 séances admissibles par action suivie. Il distingue les bougies absentes, les valeurs OHLCV incohérentes et les titres impossibles à vérifier sans qualification ou calendrier. Un total porte seulement sur les séries évaluables. Le dernier passage de réparation, même sans manque, est enregistré en base à partir de cette version. L’heure de passage attendue suit le cron configuré à New York, avec 30 minutes de tolérance. Les autres batchs affichent leurs derniers événements et leurs retards de file lorsqu’il y a des tâches à traiter. L’entraînement ML conserve son déclenchement manuel.

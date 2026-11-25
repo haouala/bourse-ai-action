@@ -88,14 +88,15 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
                 composable("portfolio") { PortfolioScreen(store, { portfolio, position -> nav.navigate("plan/$portfolio/$position") }, { nav.navigate("asset/${Uri.encode(it)}") }) }
                 composable("plan/{portfolio}/{position}") { PositionPlanScreen(store, it.arguments?.getString("portfolio")?.toLongOrNull() ?: 0, it.arguments?.getString("position")?.toLongOrNull() ?: 0) }
                 composable("alerts") { AlertsScreen(store) }
-                composable("settings") { SettingsScreen(store) }
+                composable("settings") { SettingsScreen(store) { nav.navigate("admin") } }
+                composable("admin") { AdminScreen(config) }
             }
         }
     }
 }
 
 @Composable
-fun SettingsScreen(store: AppStore) {
+fun SettingsScreen(store: AppStore, openAdmin: () -> Unit = {}) {
     val current by store.config.collectAsStateWithLifecycle()
     var demo by rememberSaveable(current) { mutableStateOf(current.demo) }
     var server by rememberSaveable(current) { mutableStateOf(current.server) }
@@ -115,6 +116,11 @@ fun SettingsScreen(store: AppStore) {
             }) { Text("Enregistrer la connexion") }
             OutlinedButton(onClick = { store.load("health", listOf("actuator", "health")) }) { Text("Tester la connexion enregistrée") }
             DataBlock(store, "health", "Connexion non testée", { it.objectValue() }) { KeyValue("État du serveur", display(it.text("status"))) }
+        }
+        if (!current.demo) {
+            OutlinedButton(onClick = openAdmin, modifier = Modifier.testTag("open-admin")) {
+                Text("Administration")
+            }
         }
         message?.let { Note(it) }
         Note("La version de développement autorise HTTP pour les essais locaux. Utiliser un serveur protégé en HTTPS avant tout accès externe. Aucun ordre de bourse ne sera envoyé.")
