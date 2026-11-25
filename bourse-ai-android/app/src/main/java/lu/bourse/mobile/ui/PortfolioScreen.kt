@@ -81,6 +81,14 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
 @Composable
 fun RiskPanel(risk: com.google.gson.JsonObject) {
     Panel("Risque global · ${display(risk.text("baseCurrency"))}") {
+        val budget = risk.decimal("maxLossAmount")
+        val remaining = risk.decimal("remainingLossBudget")
+        if (budget != null && remaining != null && budget.signum() > 0) {
+            val used = ((budget.toDouble() - remaining.toDouble()) / budget.toDouble()).coerceIn(0.0, 1.0)
+            Text("Budget de perte consommé", style = MaterialTheme.typography.labelLarge)
+            LinearProgressIndicator(progress = { used.toFloat() }, modifier = Modifier.fillMaxWidth(),
+                color = lu.bourse.mobile.ui.theme.RiskAccent)
+        }
         KeyValue("État de la valorisation", statusLabel(risk.text("status")))
         KeyValue("Liquidités", amount(risk.decimal("cash"), risk.text("baseCurrency")))
         KeyValue("Valeur connue, éventuellement partielle", amount(risk.decimal("knownEquity"), risk.text("baseCurrency")))
