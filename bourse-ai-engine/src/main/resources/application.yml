@@ -57,12 +57,15 @@ engine:
   max-positions: 5
   risk-per-trade-eur: 5
 
-# The orchestrator consumes already-imported canonical daily closes and NEVER calls providers.
-# Keep disabled until collection quotas and historical data have been verified.
+# Scheduled research analysis uses already-imported closes. Daily repair has a separate switch.
 orchestrator:
   enabled: ${ORCHESTRATOR_ENABLED:false}
   max-per-tick: ${ORCHESTRATOR_MAX_PER_TICK:5}
   delay-ms: ${ORCHESTRATOR_DELAY_MS:300000}
+  daily-repair:
+    enabled: ${ORCHESTRATOR_DAILY_REPAIR_ENABLED:false}
+    cron: "${ORCHESTRATOR_DAILY_REPAIR_CRON:0 0 17 * * MON-FRI}"
+    max-repairs: ${ORCHESTRATOR_DAILY_REPAIR_MAX_REPAIRS:5}
 
 news:
   bulk:
