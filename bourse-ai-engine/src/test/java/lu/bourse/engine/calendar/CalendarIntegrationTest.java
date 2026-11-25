@@ -52,6 +52,11 @@ class CalendarIntegrationTest extends DatabaseIntegrationSupport {
     @Test void hourlyPartialBarAndDailyLabelCloseAtTheEarlySessionEnd(){
         assertThat(calendars.barClose(asset,Instant.parse("2026-11-27T17:30:00Z"),Duration.ofHours(1))).isEqualTo(Instant.parse("2026-11-27T18:00:00Z"));
         assertThat(calendars.barClose(asset,Instant.parse("2026-11-27T00:00:00Z"),Duration.ofDays(1))).isEqualTo(Instant.parse("2026-11-27T18:00:00Z"));
+        assertThat(calendars.barCloses(asset,List.of(
+                Instant.parse("2026-11-27T17:30:00Z"),Instant.parse("2026-11-27T15:00:00Z"),
+                Instant.parse("2026-11-27T18:00:00Z")),Duration.ofHours(1)))
+                .containsExactly(Instant.parse("2026-11-27T18:00:00Z"),Instant.parse("2026-11-27T16:00:00Z"),
+                        Instant.parse("2026-11-27T19:00:00Z"));
     }
     @Test void foreignExchangeHasItsOwnTimestampAndExpiry(){
         Instant sunday=Instant.parse("2026-11-22T12:00:00Z"),friday=Instant.parse("2026-11-20T21:00:00Z");

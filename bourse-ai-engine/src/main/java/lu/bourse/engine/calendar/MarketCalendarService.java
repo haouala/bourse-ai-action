@@ -125,15 +125,42 @@ public class MarketCalendarService {
         return new Quality(assetId,closed?"AT_LAST_CLOSE":opening?"OPENING_REFERENCE":"FRESH",true,closed||opening,s,observed,fxAt,fxCutoff);
     }
     public Instant barClose(long assetId,Instant opened,Duration duration){
-        Instant normal=opened.plus(duration);
-        if(duration.equals(Duration.ofDays(1))){
-            // Daily provider timestamps are UTC trading-date labels, not midnight in New York.
-            var daily=db.queryForList("SELECT s.closes_at FROM asset_market_policies p JOIN market_sessions s ON s.calendar_code=p.calendar_code WHERE p.asset_id=? AND s.session_date=? AND s.closes_at IS NOT NULL",assetId,Date.valueOf(opened.atZone(ZoneOffset.UTC).toLocalDate()));
-            return daily.isEmpty()?normal:SqlIds.instant(daily.getFirst().get("closes_at"));
+        return barCloses(assetId,List.of(opened),duration).getFirst();
+    }
+
+    /** Resolve a chart's session boundaries in one query, in input order. */
+    public List<Instant> barCloses(long assetId,List<Instant> opens,Duration duration){
+        if(opens.isEmpty())return List.of();
+        Instant first=Collections.min(opens),last=Collections.max(opens);
+        Duration day=Duration.ofDays(1);
+        if(duration.equals(day)){
+            // Daily provider timestamps are UTC trading-date labels.
+            Map<LocalDate,Instant> closes=new HashMap<>();
+            for(var row:db.queryForList("""
+                SELECT s.session_date,s.closes_at
+                FROM asset_market_policies p JOIN market_sessions s ON s.calendar_code=p.calendar_code
+                WHERE p.asset_id=? AND s.session_date BETWEEN ? AND ? AND s.closes_at IS NOT NULL
+                """,assetId,Date.valueOf(first.atZone(ZoneOffset.UTC).toLocalDate()),
+                    Date.valueOf(last.atZone(ZoneOffset.UTC).toLocalDate()))){
+                closes.put(((Date)row.get("session_date")).toLocalDate(),SqlIds.instant(row.get("closes_at")));
+            }
+            return opens.stream().map(open -> closes.getOrDefault(open.atZone(ZoneOffset.UTC).toLocalDate(),open.plus(duration))).toList();
         }
-        if(duration.compareTo(Duration.ofDays(1))>0)return normal;
-        var rows=db.queryForList("SELECT s.closes_at FROM asset_market_policies p JOIN market_sessions s ON s.calendar_code=p.calendar_code WHERE p.asset_id=? AND s.opens_at<=? AND s.closes_at>?",assetId,ts(opened),ts(opened));
-        if(rows.isEmpty())return normal;Instant end=SqlIds.instant(rows.getFirst().get("closes_at"));return end.isBefore(normal)?end:normal;
+        if(duration.compareTo(day)>0)return opens.stream().map(open -> open.plus(duration)).toList();
+        var sessions=new TreeMap<Instant,Instant>();
+        for(var row:db.queryForList("""
+            SELECT s.opens_at,s.closes_at
+            FROM asset_market_policies p JOIN market_sessions s ON s.calendar_code=p.calendar_code
+            WHERE p.asset_id=? AND s.opens_at<=? AND s.closes_at>?
+            """,assetId,ts(last),ts(first))){
+            sessions.put(SqlIds.instant(row.get("opens_at")),SqlIds.instant(row.get("closes_at")));
+        }
+        return opens.stream().map(open -> {
+            Instant normal=open.plus(duration);
+            var session=sessions.floorEntry(open);
+            return session!=null && session.getValue().isAfter(open) && session.getValue().isBefore(normal)
+                    ?session.getValue():normal;
+        }).toList();
     }
     public State state(String symbol,String timeframe){return state(assetId(symbol),lu.bourse.engine.service.Timeframe.parse(timeframe).duration(),clock.instant());}
     public List<Map<String,Object>> calendars(){return db.queryForList("SELECT * FROM market_calendars ORDER BY code");}
