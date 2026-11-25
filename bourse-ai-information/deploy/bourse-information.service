@@ -1,0 +1,11 @@
+[Unit]
+Description=Bourse AI information collection and OpenAI analysis
+Wants=network-online.target
+After=network-online.target bourse-ai.service
+
+[Service]
+Type=oneshot
+# Override WorkingDirectory for your checkout. Install the worker in .venv there.
+WorkingDirectory=%h/bourse-ai-action/bourse-ai-information
+ExecStart=/bin/bash -c 'set -a; source ../.env; set +a; exec .venv/bin/python -m bourse_ai_information.cli cycle'
+TimeoutStartSec=45min

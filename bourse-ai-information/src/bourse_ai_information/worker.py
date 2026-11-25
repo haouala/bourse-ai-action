@@ -1,6 +1,7 @@
 """Independent process; the backend owns the persistent PostgreSQL work queue."""
 import hashlib
 import json
+import re
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -58,6 +59,29 @@ def lower_keys(row): return {str(k).lower(): v for k, v in row.items()}
 class Worker:
     def __init__(self, backend, fetcher, ai, cache, transcribe=False):
         self.backend = backend; self.fetcher = fetcher; self.ai = ai; self.cache = cache; self.transcribe = transcribe
+
+    def cycle(self, max_items):
+        sources = self.backend.call("/sources/due").get("sources", [])
+        if not isinstance(sources, list) or len(sources) > 40 or any(
+            not isinstance(code, str) or not re.fullmatch(r"[A-Z0-9_]{2,60}", code) for code in sources
+        ):
+            raise FetchError("INVALID_SOURCE_LIST")
+        collection = []
+        for code in sources:
+            try:
+                collection.append(self.backend.call(f"/sources/{code}/sync"))
+            except FetchError as error:
+                collection.append({"source": code, "status": "FAILED", "error": error.code})
+        analyses = []
+        for _ in range(max_items):
+            result = self.once()
+            if result["status"] == "IDLE":
+                break
+            analyses.append(result)
+            if result.get("error") in {"DAILY_BUDGET_EXHAUSTED", "AI_HTTP_429"}:
+                break
+        failures = sum(row["status"] == "FAILED" for row in collection + analyses)
+        return {"status": "PARTIAL" if failures else "SUCCEEDED", "collection": collection, "analyses": analyses}
 
     def once(self):
         self.backend.call("/enqueue")
