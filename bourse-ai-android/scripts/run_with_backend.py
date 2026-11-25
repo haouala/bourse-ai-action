@@ -38,7 +38,7 @@ with (output / "backend-integration.log").open("w") as log:
             if time.monotonic() > deadline:
                 raise RuntimeError("Backend startup timeout")
             time.sleep(0.5)
-        subprocess.run(["bash", "./gradlew", ":app:assembleDebug", ":app:assembleRelease",
+        subprocess.run(["bash", "./gradlew", ":app:assembleDebug", ":app:assembleBackend", ":app:assembleRelease",
                         ":app:testDebugUnitTest", ":app:lintDebug",
                         "-PbackendUrl=http://127.0.0.1:18081", "--no-daemon", "--max-workers=2"], check=True)
     finally:

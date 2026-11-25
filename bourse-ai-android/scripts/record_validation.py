@@ -22,16 +22,18 @@ screens = sorted((root / "outputs/screenshots").glob("*.png"))
 assert len(screens) >= 28, "Missing rendered screens"
 assert all(p.stat().st_size > 1000 for p in screens), "Empty screen"
 apk = root / "outputs/apk/debug/app-debug.apk"
-assert apk.is_file()
+backend_apk = root / "outputs/apk/backend/app-backend.apk"
+assert apk.is_file() and backend_apk.is_file()
 data = {
     "sourceCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-    "androidVersion": "0.2.0", "minimumApi": 26, "targetApi": 35,
+    "androidVersion": "0.3.0", "minimumApi": 26, "targetApi": 35,
     "testTotals": totals, "testSuites": suites,
     "screenshots": [p.name for p in screens],
     "screenshotEngine": "Robolectric API 35 / native graphics / real Compose UI / local synthetic data",
     "physicalDeviceTest": False,
     "realBackendIntegrationValidated": any(s["name"].endswith(".BackendContractTest") and s["tests"] > 0 for s in suites),
-    "backendCommit": "856c5e538968515626fe370c1c1179b0ccba8875",
+    "backendCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+    "backendApkSha256": hashlib.sha256(backend_apk.read_bytes()).hexdigest(),
     "apkSha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
     "releaseSigning": "not configured; delivered APK is debug signed",
 }

@@ -34,9 +34,11 @@ class UiJourneysTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var store: AppStore
     private val owner = ViewModelStore()
-    private fun start(error: Boolean = false, large: Boolean = false, restoration: StateRestorationTester? = null) {
+    private fun start(error: Boolean = false, large: Boolean = false, restoration: StateRestorationTester? = null, goToMarket: Boolean = true, guide: Boolean = false) {
         IdlingPolicies.setMasterPolicyTimeout(20, TimeUnit.SECONDS)
         ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("alert-notifications", Context.MODE_PRIVATE).edit().clear().commit()
+        if (guide) ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences("bourse-design", Context.MODE_PRIVATE).edit().clear().commit()
         val storage = object : ConfigStorage {
             private var value = ConnectionConfig(portfolioId = 1)
             override fun read() = value
@@ -51,11 +53,12 @@ class UiJourneysTest {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
             BourseTheme {
                 val density = LocalDensity.current
-                CompositionLocalProvider(LocalDensity provides Density(density.density, if (large) 1.3f else 1f)) { BourseApp(store) }
+                CompositionLocalProvider(LocalDensity provides Density(density.density, if (large) 1.3f else 1f)) { BourseApp(store, firstUseGuide = guide) }
             }
         }
         if (restoration == null) compose.setContent(content) else restoration.setContent(content)
         compose.waitForIdle()
+        if (goToMarket) tab("market")
     }
     @After fun close() { owner.clear() }
     private fun node(text: String) = compose.onAllNodesWithText(text).onFirst()
@@ -105,6 +108,18 @@ class UiJourneysTest {
         capture("02-ajouter-actif", true)
         click("Annuler")
     }
+    @Test fun welcomeCanBeSkippedAndReopenedFromHome() {
+        start(goToMarket = false, guide = true)
+        node("Bienvenue sur Bourse AI").assertExists()
+        click("Passer")
+        capture("33-tableau-de-bord")
+        compose.onNodeWithContentDescription("Guide de démarrage").performClick()
+        compose.waitForIdle()
+        capture("34-guide")
+        click("Commencer")
+        node("Tableau de bord").assertExists()
+    }
+
     @Test fun chartsCoverEveryTimeframeAndCalendar() {
         start(); asset(); capture("03-graphique")
         listOf("30m", "1h", "1d", "15m").forEach { click(it); assertNotNull(store.resources.value["chart:NVDA:$it"]?.value) }
