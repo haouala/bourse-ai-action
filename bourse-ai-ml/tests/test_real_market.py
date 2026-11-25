@@ -47,6 +47,7 @@ def test_adapter_reads_backend_schema_without_mutating_it(connection):
     connection.execute("CREATE TEMP TABLE daily_series_qualifications(asset_id integer,provider text,qualified_at timestamptz,adjustment text)")
     connection.execute("CREATE TEMP TABLE market_sessions(calendar_code text,session_date date,opens_at timestamptz,closes_at timestamptz)")
     connection.execute("CREATE TEMP TABLE market_candles(asset_id integer,timeframe text,provider text,open_time timestamptz,open_price numeric,close_price numeric)")
+    connection.execute("CREATE TEMP TABLE provider_price_observations(asset_id integer,timeframe text,provider text,open_time timestamptz,open_price numeric,close_price numeric,currency text)")
     connection.execute("INSERT INTO assets VALUES (1,'NVDA','USD','STOCK'),(2,'MISSING','USD','STOCK')")
     connection.execute("INSERT INTO watchlist VALUES (1,true),(2,true)")
     connection.execute("INSERT INTO asset_market_policies VALUES(1,'test',180)")
@@ -55,6 +56,15 @@ def test_adapter_reads_backend_schema_without_mutating_it(connection):
         connection.execute("INSERT INTO market_sessions VALUES ('test',%s,%s,%s)", (s.day, s.opens_at, s.closes_at))
         connection.execute("INSERT INTO market_candles VALUES (1,'1d','TWELVE_DATA',%s,%s,%s)",
                            (datetime.combine(s.day, datetime.min.time(), timezone.utc), s.open_price, s.close_price))
+    connection.execute("""
+        UPDATE market_candles SET provider='EODHD', open_price=900, close_price=900
+        WHERE open_time='2025-01-24T00:00:00Z'
+    """)
+    connection.execute("""
+        INSERT INTO provider_price_observations VALUES
+        (1,'1d','TWELVE_DATA','2025-01-24T00:00:00Z',123,124,'USD'),
+        (1,'1d','TWELVE_DATA','2025-01-25T00:00:00Z',999,999,'USD')
+    """)
     class Fixture:
         def execute(self, sql, params):
             assert sql == market.SERIES_SQL
@@ -63,3 +73,6 @@ def test_adapter_reads_backend_schema_without_mutating_it(connection):
     assert [r["status"] for r in result.coverage] == ["UNQUALIFIED_OR_UNKNOWN", "READY"]
     assert result.coverage[-1]["labels"] == 5
     assert result.events[-1].label_at is None
+    fixture = sessions(26)
+    expected = build_events("NVDA", "USD", "TWELVE_DATA", fixture, 1, 20)
+    assert result.events == expected
