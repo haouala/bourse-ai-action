@@ -95,6 +95,7 @@ fun RiskPanel(risk: com.google.gson.JsonObject) {
         KeyValue("Perte globale", amount(risk.decimal("loss"), risk.text("baseCurrency")))
         KeyValue("Perte maximale autorisée", amount(risk.decimal("maxLossAmount"), risk.text("baseCurrency")))
         KeyValue("Budget de perte restant", amount(risk.decimal("remainingLossBudget"), risk.text("baseCurrency")))
+        FieldHelp("le budget de perte", "Le budget restant indique la marge avant votre limite de perte globale. Il reste indisponible quand un cours ou un taux de change nécessaire manque.")
         Text("Évaluation : ${dateLabel(risk.text("evaluatedAt"))}")
         if (risk.decimal("loss") == null) Note("Valorisation incomplète : perte et budget restant ne sont pas calculables. Ne pas confondre la valeur connue avec une valorisation complète.", true)
         risk.list("quality").forEach { q -> Text("Actif ${display(q.text("assetId"))} : ${statusLabel(q.text("status"))} · prix ${dateLabel(q.text("observedAt"))} · FX ${dateLabel(q.text("fxObservedAt"))}", style = MaterialTheme.typography.bodySmall) }

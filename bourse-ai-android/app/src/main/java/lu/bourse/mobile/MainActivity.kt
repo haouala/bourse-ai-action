@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : ViewModel> create(modelClass: Class<T>): T = AppStore(PhoneConfig(applicationContext)) as T
                 })
-                BourseApp(store, alertRequests)
+                BourseApp(store, alertRequests, firstUseGuide = true)
             }
         }
     }

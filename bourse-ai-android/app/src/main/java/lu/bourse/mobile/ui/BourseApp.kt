@@ -23,12 +23,27 @@ private data class Tab(val route: String, val title: String, val icon: ImageVect
 private val tabs = listOf(Tab("home", "Accueil", Icons.Default.Home), Tab("market", "Marchés", Icons.Default.ShowChart), Tab("intelligence", "Intelligence", Icons.Default.Psychology), Tab("portfolio", "Portefeuille", Icons.Default.AccountBalanceWallet), Tab("settings", "Profil", Icons.Default.Person))
 
 @Composable
-fun BourseApp(store: AppStore, alertRequest: Int = 0) {
+fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = false) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
     val config by store.config.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val preferences = remember(context) { context.getSharedPreferences("bourse-design", 0) }
+    var guideOpen by rememberSaveable { mutableStateOf(firstUseGuide && !preferences.getBoolean("guideSeen", false)) }
+    if (guideOpen && alertRequest == 0) {
+        androidx.activity.compose.BackHandler {
+            preferences.edit().putBoolean("guideSeen", true).apply()
+            guideOpen = false
+        }
+        Scaffold { padding -> Box(Modifier.padding(padding)) {
+            WelcomeGuide {
+                preferences.edit().putBoolean("guideSeen", true).apply()
+                guideOpen = false
+            }
+        } }
+        return
+    }
     val notice by store.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice?.id) {
@@ -57,6 +72,7 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI", style = MaterialTheme.typography.titleLarge) }, actions = {
         IconButton(onClick = { nav.navigate("news") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-news")) { Icon(Icons.Default.Article, "Actualités") }
         IconButton(onClick = { nav.navigate("alerts") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-alerts")) { Icon(Icons.Default.Notifications, "Alertes") }
+        IconButton(onClick = { nav.navigate("guide") { launchSingleTop = true } }) { Icon(Icons.Default.HelpOutline, "Guide de démarrage") }
     }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
@@ -69,6 +85,7 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
             NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
+                composable("guide") { WelcomeGuide { nav.popBackStack() } }
                 composable("home") {
                     HomeScreen(store, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") })
                 }

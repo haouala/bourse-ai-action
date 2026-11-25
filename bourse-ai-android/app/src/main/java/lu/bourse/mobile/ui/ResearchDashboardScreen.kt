@@ -86,6 +86,7 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 ScoreMeter("Opportunité", r.decimal("opportunityScore"), Rising)
                 ScoreMeter("Risque (100 = élevé)", r.decimal("riskScore"), RiskAccent)
                 ScoreMeter("Fiabilité", r.decimal("reliabilityScore"), ResearchAccent)
+                FieldHelp("les scores", "L’opportunité résume les signaux favorables. Le risque augmente avec l’exposition aux pertes. La fiabilité dépend des données et des preuves disponibles. Ces scores ne donnent aucune probabilité de gain.")
                 KeyValue("État du calcul", display(r.text("status")))
             }
             DataBlock(store, "$prefix:regime", decode = { it.objectValue() }) { r ->
