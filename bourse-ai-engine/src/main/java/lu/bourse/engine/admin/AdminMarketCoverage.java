@@ -3,6 +3,8 @@ package lu.bourse.engine.admin;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -80,9 +82,9 @@ public class AdminMarketCoverage {
             String type = row.getString("asset_type");
             String provider = row.getString("provider");
             LocalDate end = row.getObject("coverage_end", LocalDate.class);
-            Integer expected = row.getObject("expected", Integer.class);
-            Integer missing = row.getObject("missing", Integer.class);
-            Integer invalid = row.getObject("invalid", Integer.class);
+            Integer expected = nullableCount(row, "expected");
+            Integer missing = nullableCount(row, "missing");
+            Integer invalid = nullableCount(row, "invalid");
             String state;
             if (!"STOCK".equals(type)) state = "NOT_APPLICABLE";
             else if ("HALTED".equals(row.getString("trading_status"))) state = "HALTED";
@@ -106,5 +108,10 @@ public class AdminMarketCoverage {
                 assessed.stream().mapToLong(Asset::expected).sum(),
                 assessed.stream().mapToLong(Asset::missing).sum(),
                 assessed.stream().mapToLong(Asset::invalid).sum(), List.copyOf(assets));
+    }
+
+    private static Integer nullableCount(ResultSet row, String column) throws SQLException {
+        int count = row.getInt(column);
+        return row.wasNull() ? null : count;
     }
 }
