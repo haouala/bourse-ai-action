@@ -41,12 +41,19 @@ fun Page(title: String, subtitle: String? = null, content: @Composable ColumnSco
 }
 
 @Composable
-fun Panel(title: String, content: @Composable ColumnScope.() -> Unit) {
+fun Panel(title: String, accent: androidx.compose.ui.graphics.Color? = null, trailing: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth(),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+        border = BorderStroke(1.dp, accent?.copy(alpha = .8f) ?: MaterialTheme.colorScheme.outlineVariant)) {
+        val container = MaterialTheme.colorScheme.surfaceContainer
+        val background = if (accent == null) Modifier else Modifier.background(
+            Brush.linearGradient(listOf(accent.copy(alpha = .22f), container)))
+        Column(background.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (trailing == null) Text(title, style = MaterialTheme.typography.titleMedium)
+            else Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                trailing()
+            }
             content()
         }
     }

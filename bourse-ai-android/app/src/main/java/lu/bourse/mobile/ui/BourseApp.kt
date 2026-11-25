@@ -20,13 +20,13 @@ import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
 
 private data class Tab(val route: String, val title: String, val icon: ImageVector)
-private val tabs = listOf(Tab("market", "Marché", Icons.Default.ShowChart), Tab("news", "Infos", Icons.Default.Article), Tab("portfolio", "Positions", Icons.Default.AccountBalanceWallet), Tab("alerts", "Alertes", Icons.Default.Notifications), Tab("settings", "Réglages", Icons.Default.Settings))
+private val tabs = listOf(Tab("home", "Accueil", Icons.Default.Home), Tab("market", "Marchés", Icons.Default.ShowChart), Tab("intelligence", "Intelligence", Icons.Default.Psychology), Tab("portfolio", "Portefeuille", Icons.Default.AccountBalanceWallet), Tab("settings", "Profil", Icons.Default.Person))
 
 @Composable
 fun BourseApp(store: AppStore, alertRequest: Int = 0) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
-    val route = entry?.destination?.route ?: "market"
+    val route = entry?.destination?.route ?: "home"
     val config by store.config.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notice by store.notice.collectAsStateWithLifecycle()
@@ -53,19 +53,28 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0) {
     )
     LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
     LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
-    val root = route in tabs.map { it.route }
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI") }, navigationIcon = {
+    val root = route in tabs.map { it.route } || route == "news" || route == "alerts"
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI", style = MaterialTheme.typography.titleLarge) }, actions = {
+        IconButton(onClick = { nav.navigate("news") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-news")) { Icon(Icons.Default.Article, "Actualités") }
+        IconButton(onClick = { nav.navigate("alerts") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-alerts")) { Icon(Icons.Default.Notifications, "Alertes") }
+    }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
         if (root) NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
             if (route != tab.route) nav.navigate(tab.route) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-        }, icon = { Icon(tab.icon, contentDescription = null) }, label = { Text(tab.title) }, modifier = Modifier.testTag("tab-${tab.route}")) } }
+        }, icon = { Icon(tab.icon, contentDescription = null) }, label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.testTag("tab-${tab.route}")) } }
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             Surface(color = if (config.demo) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
-            NavHost(nav, startDestination = "market", modifier = Modifier.weight(1f)) {
+            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
+                composable("home") {
+                    HomeScreen(store, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") })
+                }
+                composable("intelligence") {
+                    IntelligencePicker(store) { nav.navigate("research/${Uri.encode(it)}") }
+                }
                 composable("market") { MarketScreen(store) { nav.navigate("asset/${Uri.encode(it)}") } }
                 composable("asset/{symbol}") { e ->
                     val symbol = e.arguments?.getString("symbol").orEmpty()
