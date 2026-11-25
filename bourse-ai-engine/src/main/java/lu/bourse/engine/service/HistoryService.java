@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import java.sql.Timestamp;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -11,9 +13,10 @@ import java.util.*;
 public class HistoryService {
  private final AssetRepository assets;
  private final MarketCandleRepository candles;
+ private final JdbcTemplate jdbc;
  private final java.time.Clock clock;
  private final lu.bourse.engine.calendar.MarketCalendarService calendars;
- public HistoryService(AssetRepository assets,MarketCandleRepository candles,java.time.Clock clock,lu.bourse.engine.calendar.MarketCalendarService calendars){this.assets=assets;this.candles=candles;this.clock=clock;this.calendars=calendars;}
+ public HistoryService(AssetRepository assets,MarketCandleRepository candles,java.time.Clock clock,lu.bourse.engine.calendar.MarketCalendarService calendars,JdbcTemplate jdbc){this.assets=assets;this.candles=candles;this.clock=clock;this.calendars=calendars;this.jdbc=jdbc;}
  public record PriceBar(Instant openTime,BigDecimal open,BigDecimal high,BigDecimal low,BigDecimal close,BigDecimal volume) {}
  public record ImportRequest(String symbol,String name,String assetType,String currency,String timeframe,String provider,List<PriceBar> bars) {}
  public record ImportResult(String symbol,int inserted,int skipped) {}
@@ -26,16 +29,44 @@ public class HistoryService {
   AssetEntity asset=assets.findBySymbol(symbol).orElse(null);
   if(asset==null) asset=assets.save(new AssetEntity(symbol,request.name(),request.assetType(),request.currency()));
   else if(!asset.getCurrency().equals(request.currency()) || !asset.getAssetType().equals(request.assetType())) throw new ResponseStatusException(HttpStatus.CONFLICT,"Existing asset type/currency differs");
+  jdbc.queryForObject("SELECT id FROM assets WHERE id=? FOR UPDATE", Long.class, asset.getId());
   int inserted=0,skipped=0;
   Set<Instant> seen=new HashSet<>();
   for(PriceBar b:request.bars()) {
    if(b==null || b.openTime()==null || b.openTime().isAfter(clock.instant()) || b.open()==null || b.high()==null || b.low()==null || b.close()==null || b.volume()==null || b.open().signum()<=0 || b.high().compareTo(b.open())<0 || b.high().compareTo(b.close())<0 || b.low().compareTo(b.open())>0 || b.low().compareTo(b.close())>0 || b.low().signum()<=0 || b.volume().signum()<0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid OHLCV bar");
    if(calendars.barClose(asset.getId(),b.openTime(),period.duration()).isAfter(clock.instant())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Only completed candles may be imported");
-   if(!seen.add(b.openTime()) || candles.existsByAssetIdAndTimeframeAndOpenTime(asset.getId(),request.timeframe(),b.openTime())) { skipped++;continue; }
+   if(!seen.add(b.openTime())) { skipped++;continue; }
+   var existing=candles.findByAssetIdAndTimeframeAndOpenTime(asset.getId(),request.timeframe(),b.openTime());
+   if(existing.isPresent()) {
+    if ("1d".equals(request.timeframe()) && "TWELVE_DATA".equals(request.provider())
+            && !request.provider().equals(existing.get().getProvider())
+            && saveDailyObservation(asset, b)) {
+     inserted++;
+    } else {
+     skipped++;
+    }
+    continue;
+   }
    candles.save(new MarketCandleEntity(asset,request.timeframe(),b.openTime(),b.open(),b.high(),b.low(),b.close(),b.volume(),request.provider())); inserted++;
   }
   return new ImportResult(symbol,inserted,skipped);
  }
+ private boolean saveDailyObservation(AssetEntity asset, PriceBar bar) {
+  Timestamp openTime = Timestamp.from(bar.openTime());
+  Integer existing = jdbc.queryForObject("""
+      SELECT COUNT(*) FROM provider_price_observations
+      WHERE asset_id=? AND provider='TWELVE_DATA' AND timeframe='1d' AND open_time=?
+      """, Integer.class, asset.getId(), openTime);
+  if (existing != 0) return false;
+  jdbc.update("""
+      INSERT INTO provider_price_observations
+      (asset_id,provider,provider_symbol,timeframe,open_time,open_price,high_price,low_price,close_price,volume,currency)
+      VALUES (?,'TWELVE_DATA',?,'1d',?,?,?,?,?,?,?)
+      """, asset.getId(), asset.getSymbol(), openTime, bar.open(), bar.high(), bar.low(),
+      bar.close(), bar.volume(), asset.getCurrency());
+  return true;
+ }
+
  @Transactional(readOnly=true)
  public Analysis analyze(String rawSymbol,String timeframe){
   if(rawSymbol==null || !rawSymbol.matches("[A-Za-z0-9._-]{1,40}")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid symbol or timeframe");

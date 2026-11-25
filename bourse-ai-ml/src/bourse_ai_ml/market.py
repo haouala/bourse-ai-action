@@ -25,7 +25,9 @@ SERIES_SQL = """
         ORDER BY a.symbol LIMIT 101
     )
     SELECT a.symbol,a.currency,a.provider,s.session_date,s.opens_at,s.closes_at,
-           a.delivery_grace_seconds,c.open_price,c.close_price
+           a.delivery_grace_seconds,
+           COALESCE(c.open_price,o.open_price) AS open_price,
+           COALESCE(c.close_price,o.close_price) AS close_price
     FROM selected a
     LEFT JOIN public.market_sessions s ON s.calendar_code=a.calendar_code
         AND s.opens_at IS NOT NULL AND s.session_date BETWEEN %s AND %s
@@ -33,6 +35,10 @@ SERIES_SQL = """
     LEFT JOIN public.market_candles c ON c.asset_id=a.id AND c.timeframe='1d'
         AND c.provider=a.provider AND a.qualified_at<=%s
         AND c.open_time=(s.session_date::timestamp AT TIME ZONE 'UTC')
+    LEFT JOIN public.provider_price_observations o ON c.open_time IS NULL
+        AND a.provider='TWELVE_DATA' AND o.provider=a.provider AND o.asset_id=a.id
+        AND o.currency=a.currency AND o.timeframe='1d' AND a.qualified_at<=%s
+        AND o.open_time=(s.session_date::timestamp AT TIME ZONE 'UTC')
     ORDER BY a.symbol,s.session_date
 """
 
@@ -99,7 +105,7 @@ def read_market(conn, start, cutoff, horizon, cost_bps, symbols=()):
     symbols = sorted({s.upper() for s in symbols})
     if len(symbols) > 100 or any(not re.fullmatch(r"[A-Z0-9._-]{1,40}", s) for s in symbols):
         raise DataError("Maximum de 100 symboles valides par calcul")
-    records = conn.execute(SERIES_SQL, (bool(symbols), symbols, start, cutoff.date(), cutoff, cutoff)).fetchall()
+    records = conn.execute(SERIES_SQL, (bool(symbols), symbols, start, cutoff.date(), cutoff, cutoff, cutoff)).fetchall()
     grouped = defaultdict(list)
     for row in records:
         grouped[row["symbol"]].append(row)
