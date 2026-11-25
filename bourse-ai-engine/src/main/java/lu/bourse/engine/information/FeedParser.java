@@ -43,7 +43,16 @@ public final class FeedParser {
                 // An update timestamp does not establish the original publication date.
                 String time=first(child(e,"pubDate"),child(e,"published"),child(e,"date"));
                 String audio=null,transcript=null;
-                for(Element x:children(e,"enclosure"))if(x.getAttribute("type").startsWith("audio/")&&https(x.getAttribute("url"))){audio=x.getAttribute("url");break;}
+                var media = atom ? children(e,"link") : children(e,"enclosure");
+                for (Element x : media) {
+                    if (atom && !"enclosure".equals(x.getAttribute("rel"))) continue;
+                    String type = x.getAttribute("type").toLowerCase(Locale.ROOT);
+                    String candidate = x.getAttribute(atom ? "href" : "url");
+                    if ((type.startsWith("audio/") || Set.of("video/mp4","video/webm").contains(type)) && https(candidate)) {
+                        audio = candidate;
+                        break;
+                    }
+                }
                 for(Element x:children(e,"transcript"))if("https://podcastindex.org/namespace/1.0".equals(x.getNamespaceURI())&&https(x.getAttribute("url"))){transcript=x.getAttribute("url");break;}
                 if(transcript==null&&audio!=null){
                     String raw=first(child(e,"description"),child(e,"summary"),child(e,"encoded"));

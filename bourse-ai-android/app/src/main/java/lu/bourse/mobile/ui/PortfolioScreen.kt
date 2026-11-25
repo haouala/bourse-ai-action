@@ -81,12 +81,21 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
 @Composable
 fun RiskPanel(risk: com.google.gson.JsonObject) {
     Panel("Risque global · ${display(risk.text("baseCurrency"))}") {
+        val budget = risk.decimal("maxLossAmount")
+        val remaining = risk.decimal("remainingLossBudget")
+        if (budget != null && remaining != null && budget.signum() > 0) {
+            val used = ((budget.toDouble() - remaining.toDouble()) / budget.toDouble()).coerceIn(0.0, 1.0)
+            Text("Budget de perte consommé", style = MaterialTheme.typography.labelLarge)
+            LinearProgressIndicator(progress = { used.toFloat() }, modifier = Modifier.fillMaxWidth(),
+                color = lu.bourse.mobile.ui.theme.RiskAccent)
+        }
         KeyValue("État de la valorisation", statusLabel(risk.text("status")))
         KeyValue("Liquidités", amount(risk.decimal("cash"), risk.text("baseCurrency")))
         KeyValue("Valeur connue, éventuellement partielle", amount(risk.decimal("knownEquity"), risk.text("baseCurrency")))
         KeyValue("Perte globale", amount(risk.decimal("loss"), risk.text("baseCurrency")))
         KeyValue("Perte maximale autorisée", amount(risk.decimal("maxLossAmount"), risk.text("baseCurrency")))
         KeyValue("Budget de perte restant", amount(risk.decimal("remainingLossBudget"), risk.text("baseCurrency")))
+        FieldHelp("le budget de perte", "Le budget restant indique la marge avant votre limite de perte globale. Il reste indisponible quand un cours ou un taux de change nécessaire manque.")
         Text("Évaluation : ${dateLabel(risk.text("evaluatedAt"))}")
         if (risk.decimal("loss") == null) Note("Valorisation incomplète : perte et budget restant ne sont pas calculables. Ne pas confondre la valeur connue avec une valorisation complète.", true)
         risk.list("quality").forEach { q -> Text("Actif ${display(q.text("assetId"))} : ${statusLabel(q.text("status"))} · prix ${dateLabel(q.text("observedAt"))} · FX ${dateLabel(q.text("fxObservedAt"))}", style = MaterialTheme.typography.bodySmall) }

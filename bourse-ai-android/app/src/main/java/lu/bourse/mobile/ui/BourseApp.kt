@@ -2,6 +2,9 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -20,52 +23,77 @@ import lu.bourse.mobile.*
 import lu.bourse.mobile.data.*
 
 private data class Tab(val route: String, val title: String, val icon: ImageVector)
-private val tabs = listOf(Tab("market", "Marché", Icons.Default.ShowChart), Tab("news", "Infos", Icons.Default.Article), Tab("portfolio", "Positions", Icons.Default.AccountBalanceWallet), Tab("alerts", "Alertes", Icons.Default.Notifications), Tab("settings", "Réglages", Icons.Default.Settings))
+private val tabs = listOf(Tab("home", "Accueil", Icons.Default.Home), Tab("market", "Marchés", Icons.Default.ShowChart), Tab("intelligence", "Intelligence", Icons.Default.Psychology), Tab("portfolio", "Portefeuille", Icons.Default.AccountBalanceWallet), Tab("settings", "Profil", Icons.Default.Person))
 
 @Composable
-fun BourseApp(store: AppStore, alertRequest: Int = 0) {
+fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = false) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
-    val route = entry?.destination?.route ?: "market"
+    val route = entry?.destination?.route ?: "home"
     val config by store.config.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val preferences = remember(context) { context.getSharedPreferences("bourse-design", 0) }
+    var guideOpen by rememberSaveable { mutableStateOf(firstUseGuide && !preferences.getBoolean("guideSeen", false)) }
+    if (guideOpen && alertRequest == 0) {
+        androidx.activity.compose.BackHandler {
+            preferences.edit().putBoolean("guideSeen", true).apply()
+            guideOpen = false
+        }
+        Scaffold { padding -> Box(Modifier.padding(padding)) {
+            WelcomeGuide {
+                preferences.edit().putBoolean("guideSeen", true).apply()
+                guideOpen = false
+            }
+        } }
+        return
+    }
+    var homeRefresh by remember { mutableIntStateOf(0) }
     val notice by store.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice?.id) {
         val current=notice ?: return@LaunchedEffect
-        if(current.severity != "ERROR") {
-            snackbar.showSnackbar(current.message, withDismissAction = true,
-                duration = if (current.severity == "WARNING") SnackbarDuration.Long else SnackbarDuration.Short)
-            store.dismissNotice()
-        }
+        val message = current.requestId?.let { "${current.message} · Réf. $it" } ?: current.message
+        snackbar.showSnackbar(message, withDismissAction = true,
+            duration = if (current.severity == "INFO") SnackbarDuration.Short else SnackbarDuration.Long)
+        store.dismissNotice()
     }
-    if(notice?.severity == "ERROR") AlertDialog(
-        onDismissRequest = { store.dismissNotice() },
-        title = { Text("Une erreur est survenue") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(notice?.message.orEmpty())
-                notice?.code?.let { Text("Code : $it",style = MaterialTheme.typography.labelSmall) }
-                notice?.requestId?.let { Text("Référence : $it",style = MaterialTheme.typography.labelSmall) }
-            }
-        },
-        confirmButton = { TextButton(onClick = { store.dismissNotice() }) { Text("Fermer") } }
-    )
     LaunchedEffect(alertRequest) { if (alertRequest > 0) nav.navigate("alerts") { launchSingleTop = true } }
     LaunchedEffect(config) { AlertNotifications.reconcile(context, config) }
-    val root = route in tabs.map { it.route }
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI") }, navigationIcon = {
+    val root = route in tabs.map { it.route } || route == "news" || route == "alerts"
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { TopAppBar(title = { Text("Bourse AI", style = MaterialTheme.typography.titleLarge) }, actions = {
+        IconButton(onClick = { nav.navigate("news") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-news")) { Icon(Icons.Default.Article, "Actualités") }
+        IconButton(onClick = { nav.navigate("alerts") { launchSingleTop = true } }, modifier = Modifier.testTag("tab-alerts")) { Icon(Icons.Default.Notifications, "Alertes") }
+        IconButton(onClick = { nav.navigate("guide") { launchSingleTop = true } }) { Icon(Icons.Default.HelpOutline, "Guide de démarrage") }
+    }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
-        if (root) NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
-            if (route != tab.route) nav.navigate(tab.route) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-        }, icon = { Icon(tab.icon, contentDescription = null) }, label = { Text(tab.title) }, modifier = Modifier.testTag("tab-${tab.route}")) } }
+        if (route != "guide") NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
+            if (tab.route == "home") {
+                if (route != "home" && !nav.popBackStack("home", inclusive = false)) nav.navigate("home") { launchSingleTop = true }
+                homeRefresh++
+            } else if (route != tab.route) {
+                nav.navigate(tab.route) {
+                    popUpTo("home") { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }, icon = { Icon(tab.icon, contentDescription = null) }, label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.testTag("tab-${tab.route}")) } }
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             Surface(color = if (config.demo) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer) {
                 Text(if (config.demo) "DÉMONSTRATION · données fictives locales" else "SERVEUR · ${config.server}", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             }
-            NavHost(nav, startDestination = "market", modifier = Modifier.weight(1f)) {
+            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f),
+                enterTransition = { fadeIn(tween(150)) }, exitTransition = { fadeOut(tween(100)) },
+                popEnterTransition = { fadeIn(tween(150)) }, popExitTransition = { fadeOut(tween(100)) }) {
+                composable("guide") { WelcomeGuide { nav.popBackStack() } }
+                composable("home") {
+                    HomeScreen(store, homeRefresh, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") }, { nav.navigate("guide") }, { nav.navigate("asset/${Uri.encode(it)}") })
+                }
+                composable("intelligence") {
+                    IntelligencePicker(store) { nav.navigate("research/${Uri.encode(it)}") }
+                }
                 composable("market") { MarketScreen(store) { nav.navigate("asset/${Uri.encode(it)}") } }
                 composable("asset/{symbol}") { e ->
                     val symbol = e.arguments?.getString("symbol").orEmpty()

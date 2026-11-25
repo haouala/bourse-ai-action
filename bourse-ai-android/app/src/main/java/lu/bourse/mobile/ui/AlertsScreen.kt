@@ -51,6 +51,8 @@ fun AlertsScreen(store: AppStore) {
             DataBlock(store, "alerts:${config.portfolioId}", decode = { alerts(it).filter { alert -> !onlyNew || alert.status == "NEW" } }) { all ->
                 if (all.isEmpty()) Note("Aucune alerte correspondant à ce filtre. Cela ne garantit pas l’absence de risque.")
                 all.forEach { alert -> Panel(if (alert.type == "LOSS_LIMIT") "Limite de perte" else "Signal à réexaminer") {
+                    AssistChip(onClick = { }, enabled = false,
+                        label = { Text(if (alert.status == "NEW") "Nouvelle" else "Lue") })
                     Text(alert.message)
                     KeyValue("Donnée à l’origine du signal", dateLabel(alert.dataTime))
                     KeyValue("Création de l’alerte", dateLabel(alert.createdAt))

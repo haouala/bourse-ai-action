@@ -149,7 +149,7 @@ def transcript(data, content_type):
 
 def acquire(item, fetcher, transcriber=None):
     fallback = {"text": item["title"] + "\n" + item["summary"], "scope": "SUMMARY_ONLY", "url": item["original_url"], "method": "RSS_SUMMARY", "error": None, "segments": []}
-    podcast = item.get("content_kind") == "PODCAST" or bool(item.get("audio_url"))
+    podcast = item.get("content_kind") == "PODCAST" or bool(item.get("audio_url") or item.get("transcript_url"))
     errors = []
     try:
         if podcast and item.get("transcript_url"):

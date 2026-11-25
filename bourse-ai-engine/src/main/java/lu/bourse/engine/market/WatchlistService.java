@@ -41,6 +41,42 @@ public class WatchlistService {
         calendars.assignDefault(asset.getId(),r.assetType(),r.region(),r.marketZone(),r.sessionOpen(),r.sessionClose());
         return asset.getId();
     }
+    private static final Map<String,String> US_STARTER = Map.ofEntries(
+            Map.entry("AAPL","Apple"), Map.entry("MSFT","Microsoft"), Map.entry("NVDA","NVIDIA"),
+            Map.entry("AMZN","Amazon"), Map.entry("GOOGL","Alphabet"), Map.entry("META","Meta Platforms"),
+            Map.entry("TSLA","Tesla"), Map.entry("AMD","Advanced Micro Devices"), Map.entry("AVGO","Broadcom"),
+            Map.entry("JPM","JPMorgan Chase"), Map.entry("V","Visa"), Map.entry("WMT","Walmart"),
+            Map.entry("XOM","Exxon Mobil"), Map.entry("ORCL","Oracle"), Map.entry("COST","Costco"));
+
+    public List<Entry> suggestions(String query) {
+        String search = query == null ? "" : query.strip().toUpperCase(Locale.ROOT);
+        if (search.length() > 80) bad();
+        Map<String,Entry> catalog = new TreeMap<>();
+        US_STARTER.forEach((symbol,name) -> catalog.put(symbol, usEntry(symbol,name,symbol)));
+        // Imported listings override defaults; unknown venues remain available through manual entry.
+        for (var row : db.queryForList("""
+                SELECT a.symbol,a.name,a.currency,p.provider_symbol,p.exchange_mic
+                FROM assets a LEFT JOIN asset_provider_symbols p
+                  ON p.asset_id=a.id AND p.provider='TWELVE_DATA'
+                WHERE a.asset_type='STOCK'
+                """)) {
+            String symbol = (String) row.get("symbol");
+            if ("USD".equals(row.get("currency")) && isUsRegistrationCandidate(symbol,(String)row.get("exchange_mic"))) {
+                catalog.put(symbol, usEntry(symbol,(String)row.get("name"),(String)row.get("provider_symbol")));
+            } else if (!"USD".equals(row.get("currency"))) {
+                catalog.remove(symbol);
+            }
+        }
+        return catalog.values().stream()
+                .filter(e -> e.symbol().contains(search) || e.name().toUpperCase(Locale.ROOT).contains(search))
+                .sorted(Comparator.comparing((Entry e) -> !e.symbol().startsWith(search)).thenComparing(Entry::symbol))
+                .limit(20).toList();
+    }
+
+    private static Entry usEntry(String symbol,String name,String provider) {
+        return new Entry(symbol,name,"STOCK","USD",provider,"US","America/New_York","09:30","16:00",true);
+    }
+
     /** Register imported US daily equities; other markets require explicit exchange metadata. */
     @Transactional public int registerImportedUs(){
         db.queryForObject("SELECT id FROM watchlist_guard WHERE id=1 FOR UPDATE",Integer.class);

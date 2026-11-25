@@ -50,6 +50,15 @@ public class InformationService {
     }
     public List<Map<String,Object>> sources(){return db.queryForList("SELECT code,name,feed_url,evidence_url,region,language_code,content_kind,publisher_group,enabled,last_success_at,last_error,next_attempt_at FROM information_sources ORDER BY code");}
     public void enable(String code,boolean value){if(db.update("UPDATE information_sources SET enabled=?,updated_time=CURRENT_TIMESTAMP WHERE code=?",value,code)==0)throw new ResponseStatusException(NOT_FOUND,"Unknown source");}
+    public List<String> dueSources() {
+        var now = ts(clock.instant());
+        return db.queryForList("""
+                SELECT code FROM information_sources WHERE enabled=TRUE
+                AND (next_attempt_at IS NULL OR next_attempt_at<=?)
+                AND (lease_until IS NULL OR lease_until<=?)
+                ORDER BY next_attempt_at NULLS FIRST,code LIMIT 40
+                """,String.class,now,now);
+    }
     public Map<String,Object> sync(String code){
         Instant now=clock.instant();String token=UUID.randomUUID().toString();
         var claim=tx.execute(status->{

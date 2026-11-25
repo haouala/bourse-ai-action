@@ -27,6 +27,21 @@ class WorkerTests(unittest.TestCase):
 
     def worker(self): return Worker(self.backend, self.fetcher, self.ai, self.cache)
 
+    def test_cycle_collects_due_sources_before_bounded_analysis(self):
+        worker = self.worker()
+        with patch.object(worker, "once", side_effect=[{"status":"SUCCEEDED"}, {"status":"IDLE"}]) as once:
+            self.backend.call.side_effect = [
+                {"sources":["NEWS","VIDEO"]},
+                {"source":"NEWS","status":"SUCCEEDED"},
+                FetchError("BACKEND_HTTP_429"),
+            ]
+            result = worker.cycle(3)
+        self.assertEqual(result["status"], "PARTIAL")
+        self.assertEqual(result["analyses"], [{"status":"SUCCEEDED"}])
+        self.assertEqual([item.args[0] for item in self.backend.call.call_args_list],
+                         ["/sources/due", "/sources/NEWS/sync", "/sources/VIDEO/sync"])
+        self.assertEqual(once.call_count, 2)
+
     def test_summary_and_structured_evidence_reach_backend(self):
         self.assertEqual(self.worker().once()["status"], "SUCCEEDED")
         content = next(c[1] for c in self.calls if c[0].endswith("/content"))

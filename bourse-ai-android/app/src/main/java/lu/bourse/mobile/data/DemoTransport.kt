@@ -38,6 +38,18 @@ class DemoTransport : Transport {
         if (path == listOf("actuator", "health")) return obj("status" to "UP", "mode" to "DEMO")
         if (method == "GET" && path.size == 4 && path.take(3) == listOf("api", "v1", "charts")) return chart(path[3], query["timeframe"] ?: "15m")
         if (method == "GET" && path.size == 6 && path.take(4) == listOf("api", "v1", "calendars", "assets") && path.last() == "state") return obj("calendarCode" to "DEMO_US", "marketState" to "CLOSED", "expectedClose" to "2026-11-19T21:00:00Z", "nextOpen" to "2026-11-20T14:30:00Z", "reason" to "Exemple local fictif, indépendant du calendrier réel")
+        if (method == "GET" && path == listOf("api", "v1", "watchlist", "suggestions")) {
+            val term = query["q"].orEmpty().trim()
+            return JsonArray().apply {
+                (watchlist.map { it.asJsonObject } + listOf(
+                    watchRow(100, "MSFT", "Microsoft", "STOCK", "MSFT"),
+                    watchRow(101, "AMZN", "Amazon", "STOCK", "AMZN"),
+                    watchRow(102, "TSLA", "Tesla", "STOCK", "TSLA")
+                )).distinctBy { it.text("symbol") }.filter {
+                    it.text("symbol").orEmpty().contains(term, true) || it.text("name").orEmpty().contains(term, true)
+                }.forEach { add(it.deepCopy()) }
+            }
+        }
         if (path == listOf("api", "v1", "watchlist")) {
             if (method == "GET") return watchlist.deepCopy()
             if (method == "PUT" && body != null) {

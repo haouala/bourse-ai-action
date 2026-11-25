@@ -95,3 +95,8 @@ python3 scripts/record_validation.py
 ~~~
 
 La suite Android seule comporte 55 tests ; l'essai HTTP réel en ajoute un. Les rapports restent sous app/build et comprennent backend-contract.json, validation.json, les rapports JUnit/Lint et les captures natives. Cette validation H2 ne remplace pas les tests backend sur PostgreSQL ni un essai sur votre téléphone.
+
+## APK de démonstration et APK connecté
+
+`./gradlew :app:assembleDebug :app:assembleBackend` produit deux APK signés pour le développement.
+L’APK `app-debug.apk` ouvre par défaut le mode démonstration. L’APK `app-backend.apk` ouvre par défaut le mode serveur et s’installe à côté du premier. Dans **Profil**, enregistrez l’adresse du backend, puis testez la connexion. Sur téléphone, saisissez l’adresse réseau de votre serveur. Sur émulateur, l’adresse initiale est `http://10.0.2.2:8081`. La version connectée attend un backend configuré et affiche les erreurs et données absentes dans l’interface.

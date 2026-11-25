@@ -1,6 +1,10 @@
 package lu.bourse.mobile.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import lu.bourse.mobile.ui.theme.Rising
+import lu.bourse.mobile.ui.theme.RiskAccent
+import lu.bourse.mobile.ui.theme.Falling
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +31,7 @@ fun AdminScreen(config: ConnectionConfig) {
     var loading by remember(config.server) { mutableStateOf(false) }
     var error by remember(config.server) { mutableStateOf<String?>(null) }
     var server by remember(config.server) { mutableStateOf("À vérifier") }
+    var section by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Page("Administration") {
@@ -41,6 +46,7 @@ fun AdminScreen(config: ConnectionConfig) {
                 modifier = Modifier.testTag("admin-refresh"), onClick = {
                     loading = true
                     report = null
+                    section = null
                     error = null
                     server = "Vérification…"
                     scope.launch {
@@ -70,19 +76,59 @@ fun AdminScreen(config: ConnectionConfig) {
             error?.let { Note(it, true) }
         }
 
-        Panel("Disponibilité") {
-            KeyValue("Application Android", "En cours d’exécution sur cet appareil")
-            KeyValue("Serveur depuis cet appareil", server)
-            KeyValue("Backend", adminState(report?.text("backend")))
-            KeyValue("PostgreSQL", adminState(report?.text("database")))
-            report?.text("checkedAt")?.let { KeyValue("Vérifié le", localTime(it)) }
+        val data = report
+        val market = data?.child("market")
+        val batches = data?.list("batches").orEmpty()
+        val providers = data?.list("providers").orEmpty()
+        val repair = data?.child("repair")
+        val ml = data?.child("ml")
+        val tiles = listOf(
+            AdminTileModel("system", "Serveur et base",
+                when {
+                    server == "Injoignable" || data?.text("database") == "DOWN" -> "DOWN"
+                    data?.text("backend") == "UP" && data?.text("database") == "UP" -> "UP"
+                    else -> "UNKNOWN"
+                }),
+            AdminTileModel("market", "Qualité des cours", when {
+                market == null || market.id("expected") == 0L -> "UNKNOWN"
+                (market.id("missing") ?: 0) > 0 || (market.id("invalid") ?: 0) > 0 -> "ISSUES"
+                (market.id("unknownAssets") ?: 0) > 0 -> "INCOMPLETE"
+                else -> "OK"
+            }),
+            AdminTileModel("repair", "Réparation", repair?.text("state") ?: "UNKNOWN"),
+            AdminTileModel("batches", "Batchs", when {
+                batches.any { it.text("state") == "LATE" } -> "LATE"
+                batches.any { it.text("state") == "ISSUES" } -> "ISSUES"
+                batches.isNotEmpty() && batches.all { it.text("state") == "NO_BACKLOG" } -> "OK"
+                else -> "UNKNOWN"
+            }),
+            AdminTileModel("providers", "Fournisseurs", when {
+                providers.any { (it.id("failed24h") ?: 0) > 0 } -> "ISSUES"
+                providers.any { (it.id("successful24h") ?: 0) > 0 } -> "OK"
+                else -> "UNKNOWN"
+            }),
+            AdminTileModel("ml", "Dernier calcul ML", if (ml?.text("lastRun") == null) "NEVER_RUN" else "OK"),
+        )
+        tiles.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { tile ->
+                    AdminTile(tile, section == tile.key, Modifier.weight(1f)) {
+                        section = if (section == tile.key) null else tile.key
+                    }
+                }
+            }
         }
 
-        report?.let { data ->
-            RepairPanel(data.child("repair"))
-            CoveragePanel(data.child("market"))
+        if (section == "system") Panel("Disponibilité") {
+            KeyValue("Serveur depuis cet appareil", server)
+            KeyValue("Backend", adminState(data?.text("backend")))
+            KeyValue("PostgreSQL", adminState(data?.text("database")))
+            data?.text("checkedAt")?.let { KeyValue("Vérifié le", localTime(it)) }
+        }
+        if (section == "repair") RepairPanel(repair)
+        if (section == "market") CoveragePanel(market)
+        if (section == "batches") {
             Panel("Batchs et files de travail") {
-                val batches = data.list("batches")
                 if (batches.isEmpty()) Text("Indisponible")
                 batches.forEach { row ->
                     val label = when (row.text("name")) {
@@ -101,20 +147,22 @@ fun AdminScreen(config: ConnectionConfig) {
                     HorizontalDivider()
                 }
             }
+        }
+        if (section == "providers") {
             Panel("Imports fournisseurs") {
-                val providers = data.field("providers")
                 when {
-                    providers == null -> Text("Indisponible")
-                    data.list("providers").isEmpty() -> Text("Aucun import enregistré.")
-                    else -> data.list("providers").forEach { row ->
+                    data?.field("providers") == null -> Text("Indisponible")
+                    providers.isEmpty() -> Text("Aucun import enregistré.")
+                    else -> providers.forEach { row ->
                         KeyValue(display(row.text("code")), "${number(row, "successful24h")} réussis · ${number(row, "failed24h")} en échec / 24 h")
                         Text("Dernier succès : ${localTime(row.text("lastSuccess"))}")
                         Text("Dernière activité : ${localTime(row.text("lastActivity"))}")
                     }
                 }
             }
+        }
+        if (section == "ml") {
             Panel("Dernier entraînement ML") {
-                val ml = data.child("ml")
                 if (ml == null) Text("Indisponible") else {
                     KeyValue("Déclenchement", "Manuel")
                     KeyValue("Dernier calcul", localTime(ml.text("lastRun")))
@@ -124,6 +172,25 @@ fun AdminScreen(config: ConnectionConfig) {
                     }
                 }
             }
+        }
+    }
+}
+
+private data class AdminTileModel(val key: String, val title: String, val status: String)
+
+@Composable
+private fun AdminTile(tile: AdminTileModel, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tint = when (tile.status) {
+        "UP", "OK", "SUCCESS" -> Rising
+        "DOWN", "FAILED", "LATE", "ISSUES" -> Falling
+        else -> RiskAccent
+    }
+    OutlinedCard(onClick = onClick, modifier = modifier.heightIn(min = 104.dp).testTag("admin-tile-${tile.key}"),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, tint),
+        colors = CardDefaults.outlinedCardColors(containerColor = tint.copy(alpha = if (selected) .18f else .08f))) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(tile.title, style = MaterialTheme.typography.titleSmall)
+            Text(adminState(tile.status), color = tint, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

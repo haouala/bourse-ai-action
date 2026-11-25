@@ -15,11 +15,17 @@ import lu.bourse.mobile.data.*
 @Composable
 fun NewsScreen(store: AppStore, open: (Long) -> Unit, sources: () -> Unit, persons: () -> Unit, events: () -> Unit) {
     val config by store.config.collectAsStateWithLifecycle()
+    val resources by store.resources.collectAsStateWithLifecycle()
+    var podcasts by rememberSaveable { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
     fun refresh() = store.load("news", api("information", "items"), filter?.let { mapOf("source" to it) } ?: emptyMap())
     LaunchedEffect(config, filter) { refresh(); store.load("sources", api("information", "sources")); if (!config.demo) store.load("gdelt-news", api("news-collection", "items")) }
-    Page("Informations", "Publication, collecte et confirmation restent distinctes.") {
+    Page("Actualités et podcasts") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(!podcasts, { podcasts = false }, label = { Text("Toutes les publications") })
+            FilterChip(podcasts, { podcasts = true; filter = null }, label = { Text("Podcasts") })
+        }
         OutlinedTextField(search, { search = it }, label = { Text("Rechercher dans les informations") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         DataBlock(store, "sources", decode = { it.rows() }) { rows -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(filter == null, { filter = null }, label = { Text("Toutes les sources") })
@@ -27,7 +33,7 @@ fun NewsScreen(store: AppStore, open: (Long) -> Unit, sources: () -> Unit, perso
         } }
         Row { TextButton(onClick = sources) { Text("Sources") }; TextButton(onClick = persons) { Text("Personnes") }; TextButton(onClick = events) { Text("Impacts") } }
         OutlinedButton(onClick = { refresh() }) { Text("Actualiser les informations") }
-        if (!config.demo) Panel("Actualités GDELT : NGrams et GKG") {
+        if (!config.demo && !podcasts) Panel("Actualités GDELT : NGrams et GKG") {
             Text("Mentions détectées dans les archives GDELT. Une mention ne constitue ni une recommandation financière ni une citation vérifiée.", style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { store.load("gdelt-news", api("news-collection", "items")) }) { Text("Actualiser les archives") }
             DataBlock(store, "gdelt-news", decode = { it.rows() }) { articles ->
@@ -44,8 +50,18 @@ fun NewsScreen(store: AppStore, open: (Long) -> Unit, sources: () -> Unit, perso
             }
         }
         DataBlock(store, "news", decode = ::newsItems) { all ->
-            val visible = all.filter { it.title.contains(search, true) || it.summary?.contains(search, true) == true }
-            if (visible.isEmpty()) Note("Aucune information. Configurer les sources du backend ou modifier la recherche.")
+            val podcastSources = remember(resources["sources"]?.value) {
+                runCatching {
+                    resources["sources"]?.value?.rows().orEmpty()
+                        .filter { it.text("contentKind") == "PODCAST" }
+                        .mapNotNull { it.text("code") }.toSet()
+                }.getOrDefault(emptySet())
+            }
+            val visible = all.filter {
+                (!podcasts || it.source in podcastSources) &&
+                    (it.title.contains(search, true) || it.summary?.contains(search, true) == true)
+            }
+            if (visible.isEmpty()) Note(if (podcasts) "Aucun épisode disponible." else "Aucune information. Configurer les sources du backend ou modifier la recherche.")
             visible.forEach { item -> Panel(item.title) {
                 Text("${display(item.source)} · ${dateLabel(item.publishedAt)}", style = MaterialTheme.typography.labelMedium)
                 Text(item.summary?.take(200) ?: "Résumé non fourni")

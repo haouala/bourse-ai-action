@@ -14,15 +14,25 @@ android {
         targetSdk = 35
         versionCode = 3
         versionName = "0.3.0"
+        buildConfigField("boolean", "DEFAULT_DEMO", "true")
     }
 
     testOptions { unitTests.isIncludeAndroidResources = true }
 
     buildTypes {
+        create("backend") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".backend"
+            versionNameSuffix = "-backend"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "DEFAULT_DEMO", "false")
+        }
         release {
             isMinifyEnabled = false
         }
     }
+
+    sourceSets.getByName("backend").manifest.srcFile("src/debug/AndroidManifest.xml")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

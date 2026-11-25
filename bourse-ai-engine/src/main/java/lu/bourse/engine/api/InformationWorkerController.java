@@ -1,6 +1,7 @@
 package lu.bourse.engine.api;
 
 import lu.bourse.engine.information.InformationWorkService;
+import lu.bourse.engine.information.InformationService;
 import lu.bourse.engine.information.InformationAnalysisService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +15,19 @@ import static org.springframework.http.HttpStatus.*;
 @RestController
 @RequestMapping("/api/internal/information")
 public class InformationWorkerController {
-    private final InformationWorkService work;private final String secret;private final InformationAnalysisService analyses;
-    public InformationWorkerController(InformationWorkService work,InformationAnalysisService analyses,@Value("${information.ai.worker-token:}")String secret){this.work=work;this.secret=secret;this.analyses=analyses;}
+    private final InformationWorkService work;private final String secret;private final InformationAnalysisService analyses;private final InformationService feeds;
+    public InformationWorkerController(InformationWorkService work,InformationAnalysisService analyses,InformationService feeds,@Value("${information.ai.worker-token:}")String secret){this.work=work;this.secret=secret;this.analyses=analyses;this.feeds=feeds;}
     private void authorize(String authorization){if(secret.length()<32)throw new ResponseStatusException(SERVICE_UNAVAILABLE,"Worker credential not configured");String supplied=authorization==null?"":authorization; if(!MessageDigest.isEqual(("Bearer "+secret).getBytes(StandardCharsets.UTF_8),supplied.getBytes(StandardCharsets.UTF_8)))throw new ResponseStatusException(UNAUTHORIZED,"Worker credential required");}
+    @PostMapping("/sources/due") public Map<String,List<String>> dueSources(
+            @RequestHeader(value="Authorization",required=false) String auth) {
+        authorize(auth);
+        return Map.of("sources",feeds.dueSources());
+    }
+    @PostMapping("/sources/{code}/sync") public Map<String,Object> sync(
+            @RequestHeader(value="Authorization",required=false) String auth,@PathVariable String code) {
+        authorize(auth);
+        return feeds.sync(code);
+    }
     @PostMapping("/enqueue") public Map<String,Integer> enqueue(@RequestHeader(value="Authorization",required=false)String auth){authorize(auth);return Map.of("enqueued",work.enqueue());}
     @PostMapping("/claim") public Map<String,Object> claim(@RequestHeader(value="Authorization",required=false)String auth){authorize(auth);return work.claim();}
     @PutMapping("/jobs/{id}/content") public Map<String,Object> content(@RequestHeader(value="Authorization",required=false)String auth,@RequestHeader("X-Lease-Token")String lease,@PathVariable long id,@RequestBody InformationWorkService.Content c){authorize(auth);return work.contentIdentity(work.content(id,lease,c));}
