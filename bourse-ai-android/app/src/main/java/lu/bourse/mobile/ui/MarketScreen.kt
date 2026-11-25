@@ -41,6 +41,9 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
             Button(onClick = { store.clear("watch-write"); manual = false; adding = true }) { Text("Ajouter un actif") }
             OutlinedButton(onClick = { refresh() }) { Text("Actualiser") }
         }
+        if (adding && !manual) AssetPicker(store, { adding = false }, { manual = true }) { chosen ->
+            store.mutate("watch-write", api("watchlist"), chosen, "PUT") { adding = false; refresh() }
+        }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("ALL" to "Toutes régions", "US" to "États-Unis", "EU" to "Europe", "GLOBAL" to "Global").forEach { (key, label) ->
                 FilterChip(region == key, { region = key }, label = { Text(label) })
@@ -72,9 +75,6 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
                 }
             } }
         }
-    }
-    if (adding && !manual) AssetPicker(store, { adding = false }, { manual = true }) { chosen ->
-        store.mutate("watch-write", api("watchlist"), chosen, "PUT") { adding = false; refresh() }
     }
     if (adding && manual) EditorDialog("Ajouter au suivi", listOf(
         InputField("symbol", "Symbole, ex. NVDA"), InputField("name", "Nom de l’actif"), InputField("type", "Type", "STOCK", options = listOf("STOCK", "CRYPTO")),

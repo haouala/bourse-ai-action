@@ -1,8 +1,6 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,41 +26,38 @@ internal fun AssetPicker(store: AppStore, close: () -> Unit, manual: () -> Unit,
         store.load(searchKey, api("watchlist", "suggestions"), mapOf("q" to query.trim()))
     }
 
-    AlertDialog(onDismissRequest = { if (!saving) close() }, title = { Text("Ajouter au suivi") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(query, {
-                val next = it.take(80)
-                if (next.trim() != query.trim()) store.clear(searchKey)
-                query = next
-                selected = null
-            }, singleLine = true,
-                label = { Text("Symbole ou nom") }, modifier = Modifier.fillMaxWidth().testTag("asset-symbol-search"))
-            val choice = selected
-            if (choice != null) {
-                KeyValue(choice.required("symbol"), choice.required("name"))
-                Text("${choice.required("currency")} · ${choice.required("region")} · ${choice.required("sessionOpen")}–${choice.required("sessionClose")}")
-            } else DataBlock(store, searchKey, "Recherche…", { it.rows() }) { results ->
-                if (results.isEmpty()) Text("Aucun symbole trouvé.")
-                Column(Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState())) {
-                    results.forEach { row ->
-                        TextButton(onClick = { selected = row }, modifier = Modifier.fillMaxWidth()) {
-                            Text("${row.required("symbol")} · ${row.required("name")} · ${row.required("currency")}")
-                        }
-                    }
+    Panel("Ajouter au suivi", accent = MaterialTheme.colorScheme.primary) {
+        OutlinedTextField(query, {
+            val next = it.take(80)
+            if (next.trim() != query.trim()) store.clear(searchKey)
+            query = next
+            selected = null
+        }, singleLine = true, label = { Text("Symbole ou nom") },
+            modifier = Modifier.fillMaxWidth().testTag("asset-symbol-search"))
+        val choice = selected
+        if (choice != null) {
+            KeyValue(choice.required("symbol"), choice.required("name"))
+            Text("${choice.required("currency")} · ${choice.required("region")} · ${choice.required("sessionOpen")}–${choice.required("sessionClose")}")
+            Button(enabled = !saving, onClick = {
+                add(obj("symbol" to choice.required("symbol"), "name" to choice.required("name"),
+                    "assetType" to choice.required("assetType"), "currency" to choice.required("currency"),
+                    "providerSymbol" to choice.required("providerSymbol"), "region" to choice.required("region"),
+                    "marketZone" to choice.required("marketZone"), "sessionOpen" to choice.required("sessionOpen"),
+                    "sessionClose" to choice.required("sessionClose"), "enabled" to true))
+            }) { Text("Ajouter") }
+        } else DataBlock(store, searchKey, "Recherche…", { it.rows() }) { results ->
+            if (results.isEmpty()) Text("Aucun symbole trouvé.")
+            results.take(6).forEach { row ->
+                TextButton(onClick = { selected = row }) {
+                    Text("${row.required("symbol")} · ${row.required("name")} · ${row.required("currency")}")
                 }
             }
-            resources["watch-write"]?.error?.let { Note(it, true) }
+            if (results.size > 6) Text("Affiner la recherche pour afficher d’autres symboles.")
         }
-    }, confirmButton = {
-        Button(enabled = selected != null && !saving, onClick = {
-            val item = selected ?: return@Button
-            add(obj("symbol" to item.required("symbol"), "name" to item.required("name"),
-                "assetType" to item.required("assetType"), "currency" to item.required("currency"),
-                "providerSymbol" to item.required("providerSymbol"), "region" to item.required("region"),
-                "marketZone" to item.required("marketZone"), "sessionOpen" to item.required("sessionOpen"),
-                "sessionClose" to item.required("sessionClose"), "enabled" to true))
-        }) { Text("Ajouter") }
-    }, dismissButton = {
-        TextButton(onClick = manual, enabled = !saving) { Text("Saisie manuelle") }
-    })
+        resources["watch-write"]?.error?.let { Note(it, true) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = manual, enabled = !saving) { Text("Saisie manuelle") }
+            TextButton(onClick = close, enabled = !saving) { Text("Annuler") }
+        }
+    }
 }
