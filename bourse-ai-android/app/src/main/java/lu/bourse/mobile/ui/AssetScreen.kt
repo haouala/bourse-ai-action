@@ -1,6 +1,12 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Brush
+import kotlin.math.roundToInt
+import lu.bourse.mobile.ui.theme.Rising
+import lu.bourse.mobile.ui.theme.Falling
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +30,7 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
     val key = "chart:$symbol:$timeframe"
     fun refresh() = store.load(key, api("charts", symbol), mapOf("timeframe" to timeframe, "limit" to "250"))
     LaunchedEffect(symbol, timeframe, config) { refresh() }
-    Page(symbol, "Historique des cours clôturés · aucune courbe future n’est inventée") {
+    Page(symbol, "Historique des cours clôturés") {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { chartFrames.forEach { frame -> FilterChip(selected = timeframe == frame, onClick = { timeframe = frame }, label = { Text(frame) }) } }
         DataBlock(store, key, decode = ::chartData) { chart ->
             if (chart.candles.isEmpty()) Note("Aucune bougie importée pour cet intervalle. Le backend doit récupérer les données de ce symbole.")
@@ -32,6 +38,11 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                 val last = chart.candles.last()
                 Panel("Dernière clôture disponible") {
                     Text(priceText(last.close, chart.currency), style = MaterialTheme.typography.headlineLarge)
+                    chart.candles.getOrNull(chart.candles.lastIndex - 1)?.close?.takeIf { it.signum() > 0 }?.let { previous ->
+                        val change = (last.close - previous).movePointRight(2).divide(previous, 2, java.math.RoundingMode.HALF_UP)
+                        Text("${if (change.signum() > 0) "+" else ""}${amount(change)} % · vs clôture précédente",
+                            color = if (change.signum() >= 0) Rising else Falling)
+                    }
                     Text(dateLabel(last.closesAt.toString()))
                     Text("Source : ${display(last.provider)} · ${chart.candles.size} bougies")
                 }
@@ -59,20 +70,33 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
 
 @Composable
 fun PriceChart(chart: ChartData) {
-    val prices = chart.candles.map { it.close }
+    val prices = remember(chart.candles) { chart.candles.map { it.close } }
     if (prices.isEmpty()) return
-    val points = normalizedPoints(prices)
-    val line = MaterialTheme.colorScheme.primary
+    val points = remember(prices) { normalizedPoints(prices) }
+    var selected by remember(chart.candles) { mutableIntStateOf(prices.lastIndex) }
+    val line = if (prices.last() >= prices.first()) Rising else Falling
+    val candle = chart.candles[selected]
+    KeyValue(dateLabel(candle.closesAt.toString()), priceText(candle.close, chart.currency))
     val grid = MaterialTheme.colorScheme.outlineVariant
     Text("Haut ${priceText(prices.max(), chart.currency)}", style = MaterialTheme.typography.labelSmall)
-    Canvas(Modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = "Graphique historique de ${chart.symbol}, ${points.size} clôtures, de ${prices.first()} à ${prices.last()} ${chart.currency}" }) {
+    Canvas(Modifier.fillMaxWidth().height(190.dp).pointerInput(points.size) {
+        detectTapGestures { tap ->
+            if (size.width > 0) selected = (tap.x / size.width * points.lastIndex).roundToInt().coerceIn(0, points.lastIndex)
+        }
+    }.semantics { contentDescription = "Graphique historique de ${chart.symbol}, ${points.size} clôtures, de ${prices.first()} à ${prices.last()} ${chart.currency}" }) {
         val top = 12.dp.toPx(); val height = size.height - 2 * top
         repeat(4) { val y = top + height * it / 3; drawLine(grid, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()) }
         if (points.size == 1) drawCircle(line, 4.dp.toPx(), Offset(size.width / 2, top + height * (1 - points.first())))
         else {
             val path = Path()
             points.forEachIndexed { i, value -> val x = size.width * i / (points.size - 1); val y = top + height * (1 - value); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
+            val area = Path().apply { addPath(path); lineTo(size.width, top + height); lineTo(0f, top + height); close() }
+            drawPath(area, Brush.verticalGradient(listOf(line.copy(alpha = .32f), line.copy(alpha = 0f)), startY = top, endY = top + height))
             drawPath(path, line, style = Stroke(2.5.dp.toPx()))
+            val x = size.width * selected / points.lastIndex
+            val y = top + height * (1 - points[selected])
+            drawLine(grid, Offset(x, top), Offset(x, top + height), 1.dp.toPx())
+            drawCircle(line, 4.dp.toPx(), Offset(x, y))
         }
     }
     Text("Bas ${priceText(prices.min(), chart.currency)}", style = MaterialTheme.typography.labelSmall)

@@ -1,6 +1,9 @@
 package lu.bourse.mobile.ui
 
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +32,7 @@ fun display(value: String?) = value ?: "Non renseigné"
 
 @Composable
 fun Page(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.background))).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(title, style = MaterialTheme.typography.headlineMedium)
         subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         content()
@@ -38,10 +41,19 @@ fun Page(title: String, subtitle: String? = null, content: @Composable ColumnSco
 }
 
 @Composable
-fun Panel(title: String, content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+fun Panel(title: String, accent: androidx.compose.ui.graphics.Color? = null, trailing: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, accent?.copy(alpha = .8f) ?: MaterialTheme.colorScheme.outlineVariant)) {
+        val container = MaterialTheme.colorScheme.surfaceContainer
+        val background = if (accent == null) Modifier else Modifier.background(
+            Brush.linearGradient(listOf(accent.copy(alpha = .22f), container)))
+        Column(background.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (trailing == null) Text(title, style = MaterialTheme.typography.titleMedium)
+            else Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                trailing()
+            }
             content()
         }
     }
@@ -62,7 +74,7 @@ fun Remote(store: AppStore, key: String, empty: String = "Aucune donnée disponi
     val resources by store.resources.collectAsStateWithLifecycle()
     val resource = resources[key]
     when {
-        resource?.loading == true -> { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Chargement…") }
+        resource?.loading == true -> { LinearProgressIndicator(Modifier.fillMaxWidth().height(5.dp)); Text("Chargement…", style = MaterialTheme.typography.labelMedium) }
         resource?.error != null -> Note(resource.error, true)
         resource?.value != null -> {
             if (resource.value.isJsonNull) Text(empty) else content(resource.value)
@@ -124,4 +136,15 @@ fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, opera
     }, confirmButton = {
         Button(enabled = resource?.loading != true, onClick = { try { onSubmit(values.toMap()) } catch (e: IllegalArgumentException) { validation = e.message ?: "Vérifier les champs" } }) { Text(submitLabel) }
     }, dismissButton = { TextButton(enabled = resource?.loading != true, onClick = onDismiss) { Text("Annuler") } })
+}
+
+@Composable
+fun ScoreMeter(label: String, value: BigDecimal?, accent: androidx.compose.ui.graphics.Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        KeyValue(label, value?.let { "${it.stripTrailingZeros().toPlainString()} / 100" } ?: "Indisponible")
+        value?.let { score ->
+            LinearProgressIndicator(progress = { (score.toFloat() / 100).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(6.dp), color = accent)
+        }
+    }
 }

@@ -15,7 +15,7 @@ interface ConfigStorage { fun read(): ConnectionConfig; fun save(config: Connect
 class PhoneConfig(context: Context) : ConfigStorage {
     private val prefs = context.getSharedPreferences("bourse-settings", Context.MODE_PRIVATE)
     override fun read(): ConnectionConfig {
-        val demo = prefs.getBoolean("demo", true)
+        val demo = prefs.getBoolean("demo", BuildConfig.DEFAULT_DEMO)
         return ConnectionConfig(demo, prefs.getString("server", "http://10.0.2.2:8081")!!, if (demo) 1 else prefs.getLong("portfolio", 0).takeIf { it > 0 })
     }
     override fun save(config: ConnectionConfig) { prefs.edit().putBoolean("demo", config.demo).putString("server", config.server).putLong("portfolio", config.portfolioId ?: 0).apply() }
