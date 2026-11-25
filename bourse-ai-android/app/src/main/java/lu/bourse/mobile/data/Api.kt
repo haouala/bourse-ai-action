@@ -55,7 +55,7 @@ interface Transport {
     suspend fun request(method: String, path: List<String>, query: Map<String, String> = emptyMap(), body: JsonObject? = null): JsonElement
 }
 
-class HttpTransport(config: ConnectionConfig, debug: Boolean) : Transport {
+class HttpTransport(config: ConnectionConfig, debug: Boolean, private val adminToken: String? = null) : Transport {
     private val base = config.validated(debug).server.toHttpUrlOrNull()!!
     private val client = OkHttpClient.Builder().connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(25, TimeUnit.SECONDS).callTimeout(35, TimeUnit.SECONDS)
@@ -67,7 +67,11 @@ class HttpTransport(config: ConnectionConfig, debug: Boolean) : Transport {
             query.forEach { (key, value) -> addQueryParameter(key, value) }
         }.build()
         val payload = if (method in setOf("POST", "PUT")) (body?.toString() ?: "").toRequestBody("application/json; charset=utf-8".toMediaType()) else null
-        val req = Request.Builder().url(url).header("Accept", "application/json").method(method, payload).build()
+        val req = Request.Builder().url(url).header("Accept", "application/json").method(method, payload).apply {
+            if (method == "GET" && path == listOf("api", "v1", "admin", "status")) {
+                adminToken?.let { header("Authorization", "Bearer $it") }
+            }
+        }.build()
         return suspendCancellableCoroutine { continuation ->
             val call = client.newCall(req)
             continuation.invokeOnCancellation { call.cancel() }

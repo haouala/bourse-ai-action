@@ -41,4 +41,18 @@ class BackendNoticesTest {
             assertEquals("/api/v1/news-collection/run?method=NGRAMS",server.takeRequest().path)
         } finally {server.shutdown()}
     }
+
+    @Test fun adminTokenIsSentOnlyToTheAdminStatusEndpoint() = runTest {
+        MockWebServer().use { server ->
+            server.start()
+            repeat(2) { server.enqueue(MockResponse().setBody("{}")) }
+            val transport = HttpTransport(ConnectionConfig(false, server.url("/").toString()), true,
+                "local-test-admin-token-0123456789abcdef")
+            transport.request("GET", api("admin", "status"))
+            transport.request("GET", listOf("actuator", "health"))
+            assertEquals("Bearer local-test-admin-token-0123456789abcdef",
+                server.takeRequest().getHeader("Authorization"))
+            assertNull(server.takeRequest().getHeader("Authorization"))
+        }
+    }
 }
