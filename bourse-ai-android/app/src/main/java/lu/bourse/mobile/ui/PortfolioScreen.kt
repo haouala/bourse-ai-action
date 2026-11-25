@@ -56,12 +56,6 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
                 store.load("portfolio-assets", api("watchlist"))
                 openForm("choose-buy-asset")
             }, modifier = Modifier.fillMaxWidth()) { Text("Déclarer un achat effectué") }
-            if (form == "choose-buy-asset") {
-                PortfolioAssetPicker(store, { form = null }) { selected ->
-                    buySymbol = selected.symbol
-                    form = "buy"
-                }
-            }
             OutlinedButton(onClick = { refresh() }) { Text("Actualiser les positions et le risque") }
             DataBlock(store, "positions:$portfolio", decode = ::positions) { all ->
                 if (all.isEmpty()) Note("Aucune position enregistrée.")
@@ -80,6 +74,10 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
         states["portfolio-write"]?.error?.let { if (form == null) Note(it, true) }
     }
     when(form) {
+        "choose-buy-asset" -> PortfolioAssetPicker(store, { form = null }) { selected ->
+            buySymbol = selected.symbol
+            form = "buy"
+        }
         "create" -> EditorDialog("Créer un portefeuille", listOf(InputField("name", "Nom", "Mon portefeuille"), InputField("currency", "Devise de référence", "EUR"), InputField("capital", "Capital total", "1000", true), InputField("loss", "Perte maximale sur la mise totale", "500", true)), store, "portfolio-write", { form = null }) { values ->
             store.mutate("portfolio-write", api("portfolios"), createPortfolio(values)) { result -> store.selectPortfolio(result.objectValue().id() ?: throw ContractFailure("Portefeuille créé sans identifiant")); form = null }
         }
@@ -106,26 +104,33 @@ fun PortfolioScreen(store: AppStore, plan: (Long, Long) -> Unit, asset: (String)
 @Composable
 private fun PortfolioAssetPicker(store: AppStore, cancel: () -> Unit, select: (Asset) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    Panel("Choisir un actif", accent = MaterialTheme.colorScheme.primary) {
-        OutlinedTextField(query, { query = it.take(80) }, label = { Text("Rechercher un symbole ou un nom") },
-            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("portfolio-symbol-search"))
-        DataBlock(store, "portfolio-assets", decode = ::assets) { all ->
-            val matches = filterAssets(all, query, "ALL")
-            if (matches.isEmpty()) {
-                Text(if (all.isEmpty()) "Ajoutez d’abord un actif dans Marchés." else "Aucun actif correspondant.")
-            } else {
-                Text("${matches.size} actif(s)", style = MaterialTheme.typography.labelMedium)
-                LazyColumn(Modifier.fillMaxWidth().height(200.dp)) {
-                    items(matches, key = { it.symbol }) { asset ->
-                        TextButton(onClick = { select(asset) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("${asset.symbol} · ${asset.name} · ${asset.currency}")
+    AlertDialog(
+        onDismissRequest = cancel,
+        title = { Text("Choisir un actif") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it.take(80) },
+                    label = { Text("Rechercher un symbole ou un nom") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("portfolio-symbol-search"))
+                DataBlock(store, "portfolio-assets", decode = ::assets) { all ->
+                    val matches = filterAssets(all, query, "ALL")
+                    if (matches.isEmpty()) {
+                        Text(if (all.isEmpty()) "Ajoutez d’abord un actif dans Marchés." else "Aucun actif correspondant.")
+                    } else {
+                        Text("${matches.size} actif(s)", style = MaterialTheme.typography.labelMedium)
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                            items(matches, key = { it.symbol }) { asset ->
+                                TextButton(onClick = { select(asset) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("${asset.symbol} · ${asset.name} · ${asset.currency}")
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-        TextButton(onClick = cancel) { Text("Annuler") }
-    }
+        },
+        confirmButton = { TextButton(onClick = cancel) { Text("Annuler") } },
+    )
 }
 
 @Composable
