@@ -1,8 +1,8 @@
 package lu.bourse.mobile.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -19,17 +19,23 @@ import lu.bourse.mobile.data.*
 internal fun AssetPicker(store: AppStore, close: () -> Unit, manual: () -> Unit, add: (JsonObject) -> Unit) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<JsonObject?>(null) }
+    val config by store.config.collectAsStateWithLifecycle()
     val resources by store.resources.collectAsStateWithLifecycle()
     val saving = resources["watch-write"]?.loading == true
-    val searchKey = "watch-suggestions:${query.trim()}"
-    LaunchedEffect(searchKey) {
-        delay(250)
+    val searchKey = "watch-suggestions"
+    LaunchedEffect(config, query.trim()) {
+        if (!config.demo && query.isNotBlank()) delay(250)
         store.load(searchKey, api("watchlist", "suggestions"), mapOf("q" to query.trim()))
     }
-    DisposableEffect(searchKey) { onDispose { store.clear(searchKey) } }
+
     AlertDialog(onDismissRequest = { if (!saving) close() }, title = { Text("Ajouter au suivi") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(query, { query = it.take(80); selected = null }, singleLine = true,
+            OutlinedTextField(query, {
+                val next = it.take(80)
+                if (next.trim() != query.trim()) store.clear(searchKey)
+                query = next
+                selected = null
+            }, singleLine = true,
                 label = { Text("Symbole ou nom") }, modifier = Modifier.fillMaxWidth().testTag("asset-symbol-search"))
             val choice = selected
             if (choice != null) {
@@ -37,8 +43,8 @@ internal fun AssetPicker(store: AppStore, close: () -> Unit, manual: () -> Unit,
                 Text("${choice.required("currency")} · ${choice.required("region")} · ${choice.required("sessionOpen")}–${choice.required("sessionClose")}")
             } else DataBlock(store, searchKey, "Recherche…", { it.rows() }) { results ->
                 if (results.isEmpty()) Text("Aucun symbole trouvé.")
-                LazyColumn(Modifier.heightIn(max = 240.dp)) {
-                    items(results, key = { it.required("symbol") }) { row ->
+                Column(Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState())) {
+                    results.forEach { row ->
                         TextButton(onClick = { selected = row }, modifier = Modifier.fillMaxWidth()) {
                             Text("${row.required("symbol")} · ${row.required("name")} · ${row.required("currency")}")
                         }
@@ -56,5 +62,7 @@ internal fun AssetPicker(store: AppStore, close: () -> Unit, manual: () -> Unit,
                 "marketZone" to item.required("marketZone"), "sessionOpen" to item.required("sessionOpen"),
                 "sessionClose" to item.required("sessionClose"), "enabled" to true))
         }) { Text("Ajouter") }
-    }, dismissButton = { TextButton(onClick = manual, enabled = !saving) { Text("Saisie manuelle") } })
+    }, dismissButton = {
+        TextButton(onClick = manual, enabled = !saving) { Text("Saisie manuelle") }
+    })
 }
