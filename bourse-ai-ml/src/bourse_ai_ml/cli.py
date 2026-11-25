@@ -1,10 +1,11 @@
-"""Manual independent batch: no network feed, no scheduler or live rule writes."""
+"""Manual ML batch with optional preparation by the backend orchestrator."""
 import argparse
 from datetime import date, datetime
 import json
 from pathlib import Path
 import sys
 import uuid
+from urllib.request import Request, urlopen
 import psycopg
 from . import repository as db
 from .batch import execute
@@ -21,6 +22,19 @@ def emit(value):
             return obj.isoformat()
         raise TypeError("Type non exportable")
     print(json.dumps(value,ensure_ascii=False,allow_nan=False,default=dates))
+
+
+def prepare_daily_candles(backend, symbols, start, cutoff, max_repairs):
+    endpoint = backend.rstrip("/") + "/api/v1/orchestrator/repair-daily"
+    body = json.dumps({
+        "symbols": symbols, "start": start.isoformat(), "asOf": cutoff.isoformat(), "maxRepairs": max_repairs,
+    }).encode()
+    request = Request(endpoint, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urlopen(request, timeout=30 * max_repairs + 10) as response:
+            return json.load(response)
+    except (OSError, ValueError) as exc:
+        raise DataError("Réparation indisponible. Vérifier le backend avant de relancer.") from exc
 
 
 def main(argv=None) -> int:
@@ -44,6 +58,11 @@ def main(argv=None) -> int:
         market.add_argument("--symbols", nargs="+", default=[])
         market.add_argument("--horizon", choices=HORIZONS, default="MONTH")
         market.add_argument("--cost-bps", type=float, default=20.)
+        if name == "train-market":
+            market.add_argument("--repair-backend", metavar="URL",
+                                help="Demander la réparation des séances manquantes avant le calcul")
+            market.add_argument("--max-repairs", type=int, choices=range(1, 21), default=5,
+                                metavar="1..20")
     report_market = commands.add_parser("market-report", help="Afficher le rapport d’un calcul réel")
     report_market.add_argument("run_id")
     commands.add_parser("status",help="Voir les derniers calculs du batch")
@@ -61,7 +80,11 @@ def main(argv=None) -> int:
                 dataset = read_market(conn, args.start, args.as_of, args.horizon, args.cost_bps, args.symbols)
                 emit({"source": "POSTGRES_MARKET_CANDLES", "coverage": dataset.coverage})
             elif args.command == "train-market":
-                emit(execute_market(conn, args.start, args.as_of, args.horizon, args.cost_bps, args.symbols))
+                repairs = None
+                if args.repair_backend:
+                    repairs = prepare_daily_candles(args.repair_backend, args.symbols, args.start, args.as_of, args.max_repairs)
+                result = execute_market(conn, args.start, args.as_of, args.horizon, args.cost_bps, args.symbols)
+                emit(result if repairs is None else {**result, "dailyRepair": repairs})
             elif args.command == "market-report":
                 emit(market_report(conn, args.run_id))
             elif args.command == "status":
