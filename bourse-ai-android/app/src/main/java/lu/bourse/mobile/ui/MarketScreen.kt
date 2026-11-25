@@ -28,6 +28,7 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
     var onlyFavorites by rememberSaveable { mutableStateOf(false) }
     var region by rememberSaveable { mutableStateOf("ALL") }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var manual by rememberSaveable { mutableStateOf(false) }
     fun refresh() = store.load("watchlist", api("watchlist"))
     LaunchedEffect(config) { refresh() }
     Page("Marchés") {
@@ -37,7 +38,7 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
             FilterChip(onlyFavorites, { onlyFavorites = !onlyFavorites }, label = { Text("Favoris") })
         }
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { store.clear("watch-write"); adding = true }) { Text("Ajouter un actif") }
+            Button(onClick = { store.clear("watch-write"); manual = false; adding = true }) { Text("Ajouter un actif") }
             OutlinedButton(onClick = { refresh() }) { Text("Actualiser") }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -51,8 +52,9 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
             val visible = remember(all, search, type, onlyFavorites, favorites, region) {
                 filterAssets(all, search, type).filter { (!onlyFavorites || it.symbol in favorites) && (region == "ALL" || it.region == region) }
             }
+            Text("Liste des actifs (${visible.size})", style = MaterialTheme.typography.titleLarge)
             if (visible.isEmpty()) Note(if (all.isEmpty()) "Aucun actif. Ajouter un premier symbole." else "Aucun actif ne correspond à la recherche.")
-            visible.forEach { asset -> Panel("${asset.symbol} · ${asset.name}", trailing = {
+            visible.forEach { asset -> Panel("${asset.symbol} · ${asset.name}", accent = MaterialTheme.colorScheme.primary.takeIf { asset.enabled }, trailing = {
                 IconButton(onClick = {
                     favorites = if (asset.symbol in favorites) favorites - asset.symbol else favorites + asset.symbol
                     preferences.edit().putStringSet("favorites", favorites).apply()
@@ -71,7 +73,10 @@ fun MarketScreen(store: AppStore, open: (String) -> Unit) {
             } }
         }
     }
-    if (adding) EditorDialog("Ajouter au suivi", listOf(
+    if (adding && !manual) AssetPicker(store, { adding = false }, { manual = true }) { chosen ->
+        store.mutate("watch-write", api("watchlist"), chosen, "PUT") { adding = false; refresh() }
+    }
+    if (adding && manual) EditorDialog("Ajouter au suivi", listOf(
         InputField("symbol", "Symbole, ex. NVDA"), InputField("name", "Nom de l’actif"), InputField("type", "Type", "STOCK", options = listOf("STOCK", "CRYPTO")),
         InputField("currency", "Devise", "USD"), InputField("provider", "Symbole du fournisseur, ex. BTC/USD"),
         InputField("region", "Région", "US", options = listOf("US", "EU", "GLOBAL")), InputField("zone", "Fuseau du marché", "America/New_York"), InputField("opens", "Ouverture locale (HH:mm)", "09:30"), InputField("closes", "Clôture locale (HH:mm)", "16:00")

@@ -7,6 +7,8 @@ import androidx.compose.ui.graphics.Brush
 import kotlin.math.roundToInt
 import lu.bourse.mobile.ui.theme.Rising
 import lu.bourse.mobile.ui.theme.Falling
+import lu.bourse.mobile.ui.theme.RiskAccent
+import lu.bourse.mobile.ui.theme.ResearchAccent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,13 +32,15 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
     val key = "chart:$symbol:$timeframe"
     fun refresh() = store.load(key, api("charts", symbol), mapOf("timeframe" to timeframe, "limit" to "250"))
     LaunchedEffect(symbol, timeframe, config) { refresh() }
+    val scoreKey = "asset-score:$symbol"
+    LaunchedEffect(symbol, config) { store.load(scoreKey, api("scoring", symbol), mapOf("horizonDays" to "30")) }
     Page(symbol, "Historique des cours clôturés") {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { chartFrames.forEach { frame -> FilterChip(selected = timeframe == frame, onClick = { timeframe = frame }, label = { Text(frame) }) } }
         DataBlock(store, key, decode = ::chartData) { chart ->
             if (chart.candles.isEmpty()) Note("Aucune bougie importée pour cet intervalle. Le backend doit récupérer les données de ce symbole.")
             else {
                 val last = chart.candles.last()
-                Panel("Dernière clôture disponible") {
+                Panel("Dernière clôture disponible", accent = Rising) {
                     Text(priceText(last.close, chart.currency), style = MaterialTheme.typography.headlineLarge)
                     chart.candles.getOrNull(chart.candles.lastIndex - 1)?.close?.takeIf { it.signum() > 0 }?.let { previous ->
                         val change = (last.close - previous).movePointRight(2).divide(previous, 2, java.math.RoundingMode.HALF_UP)
@@ -61,7 +65,16 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                 if (table) chart.candles.takeLast(12).forEach { KeyValue(dateLabel(it.opensAt.toString()), "O ${priceText(it.open)} · H ${priceText(it.high)} · B ${priceText(it.low)} · C ${priceText(it.close)} ${chart.currency}") }
             }
         }
-        Button(onClick = research, modifier = Modifier.fillMaxWidth()) { Text("Intelligence : prévisions, graphiques, ML et risque") }
+        Panel("Résumé des scores", accent = ResearchAccent) {
+            DataBlock(store, scoreKey, decode = { it.objectValue() }) { score ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ScoreRing("Opportunité / 100", score.decimal("opportunityScore")?.toFloat(), Rising)
+                    ScoreRing("Risque / 100", score.decimal("riskScore")?.toFloat(), RiskAccent)
+                    ScoreRing("Fiabilité / 100", score.decimal("reliabilityScore")?.toFloat(), ResearchAccent)
+                }
+            }
+            Button(onClick = research, modifier = Modifier.fillMaxWidth()) { Text("Intelligence : prévisions, graphiques, ML et risque") }
+        }
         Button(onClick = explain, modifier = Modifier.fillMaxWidth()) { Text("Comprendre le score") }
         OutlinedButton(onClick = calendar, modifier = Modifier.fillMaxWidth()) { Text("Calendrier et données attendues") }
         TextButton(onClick = { refresh() }) { Text("Actualiser l’historique") }

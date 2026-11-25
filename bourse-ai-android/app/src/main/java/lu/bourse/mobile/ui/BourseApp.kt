@@ -47,6 +47,7 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
         } }
         return
     }
+    var homeRefresh by remember { mutableIntStateOf(0) }
     val notice by store.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice?.id) {
@@ -66,8 +67,17 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
     }, navigationIcon = {
         if (!root) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
     }) }, bottomBar = {
-        if (root) NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
-            if (route != tab.route) nav.navigate(tab.route) { popUpTo(nav.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
+        if (route != "guide") NavigationBar { tabs.forEach { tab -> NavigationBarItem(selected = route == tab.route, onClick = {
+            if (tab.route == "home") {
+                if (route != "home" && !nav.popBackStack("home", inclusive = false)) nav.navigate("home") { launchSingleTop = true }
+                homeRefresh++
+            } else if (route != tab.route) {
+                nav.navigate(tab.route) {
+                    popUpTo("home") { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
         }, icon = { Icon(tab.icon, contentDescription = null) }, label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.testTag("tab-${tab.route}")) } }
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
@@ -79,7 +89,7 @@ fun BourseApp(store: AppStore, alertRequest: Int = 0, firstUseGuide: Boolean = f
                 popEnterTransition = { fadeIn(tween(150)) }, popExitTransition = { fadeOut(tween(100)) }) {
                 composable("guide") { WelcomeGuide { nav.popBackStack() } }
                 composable("home") {
-                    HomeScreen(store, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") })
+                    HomeScreen(store, homeRefresh, { nav.navigate("market") }, { nav.navigate("portfolio") }, { nav.navigate("intelligence") }, { nav.navigate("guide") }, { nav.navigate("asset/${Uri.encode(it)}") })
                 }
                 composable("intelligence") {
                     IntelligencePicker(store) { nav.navigate("research/${Uri.encode(it)}") }

@@ -101,12 +101,26 @@ class UiJourneysTest {
         compose.onNodeWithText("AAPL · Apple").assertDoesNotExist()
         compose.onNodeWithTag("market-search").performTextReplacement("")
         click("Ajouter un actif")
+        click("Saisie manuelle")
         input("symbol", "AMD"); input("name", "Advanced Micro Devices")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("input-symbol").assertTextContains("AMD")
         compose.onNodeWithTag("input-name").assertTextContains("Advanced Micro Devices")
         capture("02-ajouter-actif", true)
         click("Annuler")
+    }
+    @Test fun symbolPickerAutofillsAndHomeWorksFromAssetDetails() {
+        start()
+        click("Ajouter un actif")
+        compose.onNodeWithTag("asset-symbol-search").performTextReplacement("MSFT")
+        compose.waitUntil(5000) { compose.onAllNodesWithText("MSFT · Microsoft · USD").fetchSemanticsNodes().isNotEmpty() }
+        click("MSFT · Microsoft · USD")
+        node("USD · US · 09:30–16:00").assertExists()
+        click("Ajouter")
+        node("MSFT · Microsoft").assertExists()
+        asset()
+        tab("home")
+        node("Tableau de bord").assertExists()
     }
     @Test fun welcomeCanBeSkippedAndReopenedFromHome() {
         start(goToMarket = false, guide = true)
