@@ -79,6 +79,8 @@ fun AdminScreen(config: ConnectionConfig) {
             error?.let { Note(it, true) }
         }
 
+        if (report != null) AdminOperations(config, token)
+
         val data = report
         val market = data?.child("market")
         val batches = data?.list("batches").orEmpty()

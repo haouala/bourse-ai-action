@@ -72,7 +72,10 @@ class HttpTransport(config: ConnectionConfig, debug: Boolean, private val adminT
             val confirmRelationship = method == "POST" && path.size == 7 &&
                 path.take(3) == listOf("api", "v1", "relationships") &&
                 path[4] == "suggestions" && path[6] == "confirm"
-            if (adminStatus || confirmRelationship) {
+            val adminDashboard = method == "GET" && path == listOf("api", "v1", "admin", "dashboard")
+            val adminOperation = method == "POST" && path.size == 5 &&
+                path.take(4) == listOf("api", "v1", "admin", "operations")
+            if (adminStatus || adminDashboard || adminOperation || confirmRelationship) {
                 adminToken?.let { header("Authorization", "Bearer $it") }
             }
         }.build()
