@@ -92,8 +92,12 @@ public class ExplanationService {
             var analysis=TechnicalAnalysis.analyze(bars);boolean usable=fresh&&analysis.continuousCandles()>=5;
             BigDecimal reserved=BigDecimal.valueOf(rules.technicalMax()).multiply(new BigDecimal("0.2"));
             BigDecimal points=usable?reserved.multiply(BigDecimal.valueOf(analysis.opportunityDelta())).divide(BigDecimal.valueOf(8),8,RoundingMode.HALF_UP):BigDecimal.ZERO;
+            var evidence=new LinkedHashMap<String,Object>();evidence.put("symbol",h.symbol());evidence.put("timeframe",tf);evidence.put("currency",h.currency());
+            evidence.put("asOf",now);evidence.put("referenceTime",bars.isEmpty()?null:bars.getLast().openTime());
+            evidence.put("status",usable?"EXPERIMENTAL":h.freshness());evidence.put("usable",usable);
+            evidence.put("analysis",analysis);evidence.put("reservedBudget",reserved);evidence.put("freshness",h.freshness());
             factors.add(new Factor("TECH_PATTERNS","TECHNICAL",points,usable?"AVAILABLE":bars.isEmpty()?"MISSING":fresh?"MISSING":"STALE",
-                    "Figures, tendance et structure : 20 % du budget technique réservé en V2 ; contribution proportionnelle plafonnée. Les points de risque sont présentés séparément dans le score de risque.",Map.of("timeframe",tf,"analysis",analysis,"reservedBudget",reserved,"freshness",h.freshness())));
+                    "Figures, tendance et structure : 20 % du budget technique réservé en V2 ; contribution proportionnelle plafonnée. Les points de risque sont présentés séparément dans le score de risque.",evidence));
         }
         if(bars.size()<35){for(String k:List.of("MACD","RSI"))factors.add(missing("TECH_"+k,"TECHNICAL","Au moins 35 bougies closes requises sur "+tf));return;}
         var prices=bars.stream().map(lu.bourse.engine.service.CandlestickPatterns.Bar::close).toList();
