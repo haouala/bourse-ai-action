@@ -55,7 +55,8 @@ public class AlpacaIntradayService {
         run("RECENT", assets(), new Window(today.minusDays(6), today), false);
     }
 
-    @Scheduled(cron = "${ALPACA_HISTORY_CRON:40 * * * * *}", zone = "America/New_York")
+    @Scheduled(cron = "${ALPACA_HISTORY_CRON:40 * 0-7,22-23 * * *}",
+            zone = "${ALPACA_HISTORY_ZONE:Europe/Luxembourg}")
     public synchronized void history() {
         if (!enabled || !client.configured()) return;
         LocalDate today = LocalDate.ofInstant(clock.instant(), NEW_YORK);

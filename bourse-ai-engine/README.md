@@ -14,7 +14,9 @@ doit dater d'au moins 15 minutes. Seules les bougies de la séance régulière
 sont retenues, y compris lors des clôtures anticipées.
 
 Le passage récent reparcourt sept jours calendaires chaque quart d'heure.
-Le passage historique part de sept ans en arrière par fenêtres de sept jours,
+Le passage historique traite un lot par minute, de 22 h à 08 h, heure du Luxembourg
+(par défaut, réglable par `ALPACA_HISTORY_CRON` et `ALPACA_HISTORY_ZONE`).
+Il part de sept ans en arrière par fenêtres de sept jours,
 avec reprise par actif après un redémarrage. Chaque fenêtre historique est
 parcourue une fois avec nouvelle tentative si elle échoue. Une absence chez
 le fournisseur, y compris avant la première cotation ou pendant une suspension,
