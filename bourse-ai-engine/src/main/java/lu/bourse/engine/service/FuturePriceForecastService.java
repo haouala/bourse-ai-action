@@ -19,8 +19,9 @@ public class FuturePriceForecastService {
  private final JdbcTemplate jdbc;
  private final DataQualityService quality;
  private final PredictionTrackingService tracking;
- public FuturePriceForecastService(JdbcTemplate jdbc,DataQualityService quality,PredictionTrackingService tracking){
-  this.jdbc=jdbc;this.quality=quality;this.tracking=tracking;
+ private final ClosedMarketHistory history;private final Clock clock;
+ public FuturePriceForecastService(JdbcTemplate jdbc,DataQualityService quality,PredictionTrackingService tracking,ClosedMarketHistory history,Clock clock){
+  this.jdbc=jdbc;this.quality=quality;this.tracking=tracking;this.history=history;this.clock=clock;
  }
  public record Forecast(String symbol,String currency,Instant referenceTime,BigDecimal referencePrice,
    int horizonDays,LocalDate approximateTargetDate,BigDecimal pessimistic,BigDecimal central,
@@ -42,13 +43,11 @@ public class FuturePriceForecastService {
   List<String> currencies=jdbc.query("SELECT currency FROM assets WHERE symbol=?",
    (rs,i)->rs.getString(1),ticker);
   if(currencies.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Unknown symbol");
-  List<Observed> prices=jdbc.query(
-   "SELECT c.open_time,c.close_price FROM market_candles c JOIN assets a ON a.id=c.asset_id WHERE a.symbol=? AND c.timeframe='1d' AND c.open_time<=CURRENT_TIMESTAMP ORDER BY c.open_time DESC LIMIT 10000",
-   (rs,i)->new Observed(rs.getTimestamp(1).toInstant(),rs.getBigDecimal(2)),ticker);
-  Collections.reverse(prices);
+  List<Observed> prices=history.load(ticker,"1d",10000,clock.instant()).bars().stream()
+   .map(b->new Observed(b.openTime(),b.close())).toList();
   if(prices.size()<250)throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"At least 250 daily candles required");
   Observed latest=prices.get(prices.size()-1);
-  Instant now=Instant.now();
+  Instant now=clock.instant();
   if(latest.time().isAfter(now) || Duration.between(latest.time(),now).toDays()>7)
    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Reference price too old or in future");
   List<PriceForecastMath.Close> closes=new ArrayList<>();

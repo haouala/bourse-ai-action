@@ -42,4 +42,11 @@ public final class ScoringRules {
   return new Scores(opportunity,risk,reliability,enough?"RESEARCH_ONLY":"INSUFFICIENT_RELIABILITY_EVIDENCE",List.copyOf(notes));
  }
  static int clamp(int x){return Math.max(0,Math.min(100,x));}
+ /** Version 2 adds bounded experimental technical points; evidence reliability is deliberately unchanged. */
+ public static Scores withTechnical(Scores base,int opportunityDelta,int riskDelta){
+  if(opportunityDelta< -8||opportunityDelta>8||riskDelta<0||riskDelta>8)throw new IllegalArgumentException("Technical contribution exceeds cap");
+  var reasons=new ArrayList<>(base.reasons());
+  reasons.add("TECHNICAL_SCORE_V2 : contribution technique expérimentale, opportunité "+opportunityDelta+", risque +"+riskDelta+" ; plafonds appliqués. Aucun gain de fiabilité supposé.");
+  return new Scores(clamp(base.opportunity()+opportunityDelta),clamp(base.risk()+riskDelta),base.reliability(),base.status(),List.copyOf(reasons));
+ }
 }
