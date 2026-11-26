@@ -3,7 +3,7 @@ package lu.bourse.mobile.data
 /** Shared plain-French definitions for contextual help throughout the app. */
 enum class FinancialTerm(val title: String, val definition: String, val example: String, val limitation: String = "") {
     CANDLE("Bougie et OHLC", "Une bougie résume une période : O = ouverture, H = plus haut, B = plus bas, C = clôture. Le corps relie ouverture et clôture ; les mèches montrent les extrêmes.", "En 1 h : ouverture 100 €, plus haut 103 €, plus bas 98 €, clôture 102 €.", "Ces prix décrivent le passé. Une bougie verte ne garantit pas la prochaine hausse."),
-    PATTERNS("Figures de bougies", "Des règles recherchent des formes dans les prix des bougies clôturées : marteau, doji et engloutissement. L’application affiche les détections des 12 dernières bougies de l’intervalle choisi.", "Un marteau après une baisse peut signaler une reprise possible des achats.", "Une figure est un indice descriptif, pas une probabilité de gain. Elle n’ajoute aucun point au score et ne modifie pas le modèle ML."),
+    PATTERNS("Figures de bougies", "Des règles recherchent des formes dans les prix des bougies clôturées : marteau, doji et engloutissement. L’application affiche les détections des 12 dernières bougies de l’intervalle choisi.", "Un marteau peut apporter des points d’opportunité ; un engloutissement baissier peut diminuer l’opportunité et augmenter le risque.", "Les règles V2 appliquent des plafonds, vérifient les données et adaptent les points à l’horizon. Le ML compare ces variables aux prix seuls. Une figure n’est pas une probabilité de gain."),
     HAMMER("Marteau", "Petit corps près du haut et longue mèche en bas : les acheteurs ont récupéré une grande partie de la baisse de cette période. Ici, il est recherché après quatre clôtures précédentes en baisse.", "Ouverture 100 €, plus bas 94 €, plus haut 101,20 €, clôture 101 €.", "Un rebond reste possible, jamais certain. La même forme après une hausse n’est pas appelée marteau haussier ici."),
     DOJI("Doji", "L’ouverture et la clôture sont très proches : le prix termine presque à son point de départ. Cela peut traduire une hésitation entre acheteurs et vendeurs.", "Ouverture 100 €, plus haut 103 €, plus bas 97 €, clôture 100,10 €.", "Un doji seul n’indique pas une direction. Une bougie sans aucune variation est ignorée."),
     BULLISH_ENGULFING("Engloutissement haussier", "Après une baisse, une bougie qui monte possède un corps plus grand qui recouvre le corps de la bougie précédente, qui baissait. Les mèches ne sont pas utilisées pour ce recouvrement.", "Première bougie : de 105 à 101 €. Suivante : de 100 à 106 €.", "Cela suggère un retour des acheteurs, sans garantir une hausse à venir."),
@@ -16,7 +16,7 @@ enum class FinancialTerm(val title: String, val definition: String, val example:
     SCORES("Scores d’opportunité, de risque et de fiabilité", "L’opportunité résume les éléments favorables. Le risque résume les facteurs de perte potentielle : 100 signifie plus de risque. La fiabilité décrit la qualité des données et des preuves disponibles.", "Opportunité 78/100 ne signifie pas 78 % de chances de gagner.", "Ces scores sont expérimentaux et ne garantissent aucun rendement."),
     VOLATILITY("Volatilité", "Mesure de l’ampleur des variations du prix. Une forte volatilité signifie des mouvements plus importants, à la hausse comme à la baisse. « Annualisée » signifie ramenée à une échelle annuelle par une formule.", "Un prix passant souvent de 100 à 110 puis à 90 varie davantage qu’un prix restant entre 99 et 101.", "La volatilité historique ne donne pas la direction future."),
     DRAWDOWN("Drawdown · recul depuis un sommet", "Baisse mesurée depuis un sommet précédent sur la période étudiée.", "Le prix passe de 100 à 120 puis à 90 € : le recul depuis le sommet de 120 € est de 25 %.", "Le recul mesuré dépend de la période et des observations disponibles."),
-    SUPPORT("Support et résistance", "Un support est une zone où une baisse a déjà rencontré des achats. Une résistance est une zone où une hausse a déjà rencontré des ventes.", "Le prix rebondit plusieurs fois près de 90 € : cette zone peut être étudiée comme support.", "Ces zones peuvent être franchies. L’application ne les déduit pas automatiquement des figures de ce module."),
+    SUPPORT("Support et résistance", "Un support est une zone où une baisse a déjà rencontré des achats. Une résistance est une zone où une hausse a déjà rencontré des ventes.", "Le prix rebondit plusieurs fois près de 90 € : cette zone peut être étudiée comme support.", "Les structures triples détectées affichent leurs niveaux observés. Ils peuvent être franchis et ne garantissent aucun prix futur."),
     CORRELATION("Corrélation historique", "Mesure de la façon dont deux séries de rendements ont évolué ensemble, de −1 à +1. Près de +1 : mouvements souvent dans le même sens ; près de −1 : souvent opposés.", "Deux actions peuvent souvent monter et baisser ensemble sans que l’une cause les mouvements de l’autre.", "Une corrélation passée peut changer. Elle ne prouve pas une contagion ni un lien de cause à effet."),
     RETURN("Rendement", "Variation de valeur rapportée au montant de départ. Selon le calcul, les frais, dividendes et effets de change peuvent être inclus ou exclus.", "Un prix passe de 100 à 110 € : hausse de 10 % avant frais, dividendes et change.", "Un rendement passé ne prédit pas le rendement futur."),
     FX("FX · taux de change", "Taux utilisé pour convertir une devise dans une autre, par exemple des dollars en euros.", "Une action peut monter en dollars tandis que sa valeur en euros progresse moins si le dollar baisse.", "Un taux ancien peut rendre la valorisation du portefeuille inexacte."),
@@ -36,6 +36,14 @@ enum class FinancialTerm(val title: String, val definition: String, val example:
     REGIME("Régime de marché", "Description de l’état récent du marché, par exemple une tendance à la hausse, à la baisse ou une période de fortes variations.", "Une série de cours peut être classée comme volatile si ses variations récentes sont importantes.", "C’est une classification du passé disponible, pas une annonce du prochain mouvement."),
     WEIGHT("Pondération des composantes", "Importance attribuée à chaque élément dans le calcul d’un score.", "Une amplitude technique plus élevée permet aux indicateurs de prix d’influencer davantage le score.", "Un poids plus élevé ne rend pas un signal plus fiable ; les choix doivent être évalués sur des données distinctes."),
     MARGIN("Marge financière", "Part du chiffre d’affaires restant après les coûts définis par le type de marge utilisé. Une marge nette prend en compte l’ensemble des charges du résultat net.", "Résultat net de 10 € pour 100 € de chiffre d’affaires : marge nette de 10 %.", "Il faut comparer le même type de marge et des périodes comparables."),
+    ELLIOTT("Vagues d’Elliott", "Une lecture des mouvements du prix : cinq vagues numérotées 1 à 5, puis une correction A–B–C dans le schéma classique. Ici, des règles simplifiées vérifient une succession de sommets et de creux confirmés.", "Une hausse en cinq vagues peut être suivie d’une baisse A, d’un rebond B et d’une nouvelle baisse C. Une reprise après C reste une hypothèse.", "Le comptage est interprétatif et simplifié. Les extrêmes ne sont connus qu’après deux bougies supplémentaires. Une impulsion complète seule n’ajoute pas de points favorables ; une correction compatible est limitée à 1 point avant plafonds et horizon."),
+    TRIPLE_BOTTOM("Triple creux", "Après une baisse, trois creux se forment à des prix proches. Une clôture au-dessus des sommets intermédiaires constitue ici la condition de cassure.", "Trois passages près de 100 €, avec des rebonds vers 110 € ; une clôture au-dessus de 110 € complète la condition de reprise.", "Tolérance de 2 % entre les creux et rebonds d’au moins 2 % dans cette implémentation. Une figure en formation n’ajoute pas de points. La cassure peut échouer."),
+    TRIPLE_TOP("Triple sommet", "Après une hausse, trois sommets apparaissent à des prix proches. Une clôture sous les creux intermédiaires constitue ici la condition de cassure baissière.", "Trois passages près de 120 €, séparés de replis vers 110 € ; une clôture sous 110 € complète la condition de baisse.", "Les seuils sont expérimentaux. Une cassure observée peut être suivie d’un rebond ; il ne s’agit pas d’une certitude de baisse."),
+    ATR("ATR · amplitude vraie moyenne", "Mesure l’ampleur des variations en tenant compte des écarts entre la clôture précédente et la bougie actuelle. Ici, c’est la moyenne simple des 14 dernières amplitudes vraies, rapportée au prix de clôture.", "ATR de 3 € pour un prix de 100 € : amplitude moyenne de 3 %.", "Cette variante n’utilise pas le lissage de Wilder. Elle mesure une amplitude, pas une direction. Le seuil de risque de 3 % est une convention expérimentale dépendant de l’intervalle."),
+    BOLLINGER("Bandes de Bollinger", "Une moyenne sur 20 périodes entourée de deux bandes, situées à deux écarts-types au-dessus et en dessous. L’écart-type mesure la dispersion des prix autour de la moyenne.", "La position vaut 0 sur la moyenne, +1 sur la bande supérieure et −1 sur la bande inférieure.", "Une sortie de bande peut accompagner une tendance forte. Elle ne déclenche pas automatiquement un achat ou une vente. Les bandes ne sont pas une fourchette garantie."),
+    DONCHIAN("Canal de Donchian", "Les plus hauts et plus bas des 20 bougies précédentes définissent un canal. La bougie actuelle est exclue du calcul du canal.", "Si les plus hauts précédents ne dépassent pas 105 € et que la clôture actuelle atteint 106 €, une cassure vers le haut est observée.", "Les cassures peuvent être trompeuses. Le signal est une règle de prix, sans garantie de poursuite du mouvement."),
+    SMA_TREND("Tendance SMA 20 / 50", "Compare la moyenne des 20 dernières clôtures à celle des 50 dernières. Une moyenne courte supérieure à la longue décrit une tendance récente plus favorable selon cette règle.", "Moyenne 20 à 105 € et moyenne 50 à 100 € : écart de +5 %.", "Il s’agit du rapport actuel entre les moyennes, pas nécessairement d’un nouveau croisement. Ces moyennes suivent le passé avec retard."),
+    FEATURE_SELECTION("Variables retenues par le ML", "Le ML compare un modèle utilisant les prix seuls à un modèle enrichi avec bougies, volumes, structures et indicateurs. Il choisit le modèle et le jeu de variables sur une période de validation séparée.", "Si les variables enrichies n’améliorent pas le Brier de validation, un modèle de prix seuls peut rester retenu. Le test final sert uniquement à mesurer les résultats.", "Les valeurs manquantes restent signalées et leur remplacement statistique est appris sur l’entraînement. Un meilleur test historique ne prouve pas une performance future."),
 }
 
 fun financialHelpFor(label: String): FinancialTerm? {
@@ -43,6 +51,14 @@ fun financialHelpFor(label: String): FinancialTerm? {
     return when {
         "figures de bougies" in s -> FinancialTerm.PATTERNS
         "confirmation" in s -> FinancialTerm.CONFIRMATION
+        "elliott" in s -> FinancialTerm.ELLIOTT
+        "triple creux" in s -> FinancialTerm.TRIPLE_BOTTOM
+        "triple sommet" in s -> FinancialTerm.TRIPLE_TOP
+        "atr" in s -> FinancialTerm.ATR
+        "bollinger" in s -> FinancialTerm.BOLLINGER
+        "donchian" in s -> FinancialTerm.DONCHIAN
+        "20 / 50" in s -> FinancialTerm.SMA_TREND
+        "variables retenues" in s || "variables enrichies" in s || "prix seuls" in s -> FinancialTerm.FEATURE_SELECTION
         "bougie" in s || "ohlc" in s || "clôture" in s -> FinancialTerm.CANDLE
         "volume" in s -> FinancialTerm.VOLUME
         "macd" in s -> FinancialTerm.MACD
@@ -57,6 +73,7 @@ fun financialHelpFor(label: String): FinancialTerm? {
         "budget de perte" in s -> FinancialTerm.LOSS_BUDGET
         "risque global" in s || "perte globale" in s || "perte maximale" in s -> FinancialTerm.LOSS_BUDGET
         "2r" in s -> FinancialTerm.TARGET_2R
+        "support" in s || "résistance" in s -> FinancialTerm.SUPPORT
         "scénario" in s -> FinancialTerm.SCENARIO
         "saisonnalité" in s -> FinancialTerm.SEASONALITY
         "régime" in s -> FinancialTerm.REGIME
@@ -69,7 +86,7 @@ fun financialHelpFor(label: String): FinancialTerm? {
         "marge" in s -> FinancialTerm.MARGIN
         "bottleneck" in s -> FinancialTerm.BOTTLENECK
         "machine learning" in s || Regex("\\bml\\b").containsMatchIn(s) -> FinancialTerm.ML
-        "score" in s || "opportunité" in s || "fiabilité" in s || s.startsWith("risque") -> FinancialTerm.SCORES
+        "score" in s || "opportunité" in s || "fiabilité" in s || "risque" in s -> FinancialTerm.SCORES
         "fx" in s || "taux de change" in s -> FinancialTerm.FX
         else -> null
     }

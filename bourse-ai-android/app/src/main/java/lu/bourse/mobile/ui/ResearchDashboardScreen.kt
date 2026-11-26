@@ -89,6 +89,10 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                 ScoreMeter("Fiabilité", r.decimal("reliabilityScore"), ResearchAccent)
                 FieldHelp("les scores", "L’opportunité résume les signaux favorables. Le risque augmente avec l’exposition aux pertes. La fiabilité dépend des données et des preuves disponibles. Ces scores ne donnent aucune probabilité de gain.")
                 KeyValue("État du calcul", display(r.text("status")))
+                r.child("technicalAnalysis")?.let { technical ->
+                    HorizontalDivider()
+                    TechnicalAnalysisContent(technical, r.text("technicalOpportunityDelta"), r.text("technicalRiskDelta"))
+                }
             }
             DataBlock(store, "$prefix:regime", decode = { it.objectValue() }) { r ->
                 val signal = r.child("signal")
@@ -153,6 +157,17 @@ fun ResearchDashboardScreen(store: AppStore, symbol: String) {
                     else Text("Estimation indisponible pour la dernière clôture vérifiée.")
                     KeyValue("Brier modèle / référence", amount(result.brier) + " / " + amount(result.constantBrier))
                     KeyValue("Observations de test", result.testCount.toString())
+                    KeyValue("Variables retenues par le ML", when(result.featureSet) {
+                        "TECHNICAL_ENRICHED" -> "Prix, bougies et indicateurs techniques"
+                        else -> "Variables de prix seules"
+                    })
+                    if (result.featureSet == "TECHNICAL_ENRICHED") Text("Les figures font partie des variables du modèle retenu.")
+                    else Text("Le modèle retenu utilise les prix seuls. Les figures enrichies peuvent avoir été écartées par la validation, ou manquer de données.")
+                    result.comparison.forEach { candidate ->
+                        KeyValue(if(candidate.text("featureSet") == "TECHNICAL_ENRICHED") "Test · variables enrichies" else "Test · prix seuls",
+                            "Brier ${priceText(candidate.decimal("testBrier"))} · validation ${priceText(candidate.decimal("validationBrier"))}")
+                    }
+                    FinancialHelp(FinancialTerm.FEATURE_SELECTION)
                 }
             }
         }

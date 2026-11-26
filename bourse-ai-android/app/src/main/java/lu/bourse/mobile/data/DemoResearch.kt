@@ -30,9 +30,10 @@ class DemoResearch {
         if (path.size == 5 && path[2] == "ml" && path[3] == "market") return JsonArray()
         val symbol = path[3]
         val group = path[2]
-        if (group !in setOf("charts", "scoring", "regimes", "ai-bottlenecks")) return null
+        if (group !in setOf("charts", "scoring", "regimes", "ai-bottlenecks", "technical-analysis")) return null
         requireSymbol(symbol)
         val value = base(symbol)
+        if (group == "technical-analysis" && path.size == 4) return demoTechnical(symbol, query["timeframe"] ?: "1d", value)
         if (group == "charts" && path.size == 5) return when (path[4]) {
             "history" -> {
                 val observations = JsonArray()
@@ -123,6 +124,10 @@ class DemoResearch {
             "reliabilityScore" to null,
             "status" to "INSUFFICIENT_RELIABILITY_EVIDENCE",
             "evaluatedForecasts" to 4,
+            "scoreVersion" to "TECHNICAL_SCORE_V2",
+            "technicalOpportunityDelta" to 2,
+            "technicalRiskDelta" to 2,
+            "technicalAnalysis" to demoTechnical(symbol, "1d", value),
             "disclaimer" to "Scores 100% fictifs, sans probabilité de gain"
         )
         if (group == "regimes" && path.size == 4) return obj(

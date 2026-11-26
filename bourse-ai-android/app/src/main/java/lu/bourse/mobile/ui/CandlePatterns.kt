@@ -71,7 +71,7 @@ fun CandlePatternsPanel(chart: ChartData) {
             if (report.patterns.size > 3) TextButton(onClick = { expanded = !expanded }) {
                 Text(if (expanded) "Réduire les figures" else "Voir les ${report.patterns.size} figures détectées")
             }
-            Text("Lecture historique des données importées. Une figure, même confirmée par le prix, ne garantit pas la suite. Aucun point ajouté au score.", style = MaterialTheme.typography.bodySmall)
+            Text("Lecture historique des données importées. Une figure ne garantit pas la suite. Les règles V2 peuvent contribuer aux scores selon leur intervalle et leur horizon ; les points appliqués sont détaillés dans Intelligence.", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
