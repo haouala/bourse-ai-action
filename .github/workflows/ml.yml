@@ -1,0 +1,68 @@
+name: Python ML batch validation
+on:
+  push:
+    branches: [feature/ml-batch-demo]
+    paths: ['bourse-ai-ml/**', 'contracts/**', '.github/workflows/ml.yml']
+  pull_request:
+    paths: ['bourse-ai-ml/**', 'contracts/**', '.github/workflows/ml.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ml-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ml_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: bourse_ml_test_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ml_test -d bourse_ml_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      BOURSE_ML_TEST_DSN: host=127.0.0.1 port=5432 dbname=bourse_ml_test_ci user=ml_test
+      PGPASSWORD: synthetic-ci-only
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: bourse-ai-ml/requirements.lock
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: bourse-ai-engine/pom.xml
+      - name: Install tested Python dependencies and package
+        working-directory: bourse-ai-ml
+        run: |
+          python -m pip install -r requirements.lock
+          python -m pip install --no-deps .
+      - name: Build current backend
+        run: mvn -q -f bourse-ai-engine/pom.xml -DskipTests package
+      - name: Verify Java and Python on the same PostgreSQL database
+        working-directory: bourse-ai-ml
+        run: python scripts/shared_backend_smoke.py --jar ../bourse-ai-engine/target/bourse-ai-engine-0.1.0-SNAPSHOT.jar
+      - name: Run all unit and PostgreSQL regression tests
+        working-directory: bourse-ai-ml
+        run: python -m pytest -q --junitxml=output/tests.xml
+      - name: Save test evidence and batch outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bourse-AI-ML-validation
+          path: bourse-ai-ml/output/
+          retention-days: 30

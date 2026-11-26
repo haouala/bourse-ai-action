@@ -23,6 +23,9 @@ public class MarketCandleEntity {
  public MarketCandleEntity(AssetEntity asset,String timeframe,Instant openTime,BigDecimal openPrice,BigDecimal highPrice,BigDecimal lowPrice,BigDecimal closePrice,BigDecimal volume,String provider){
  this.asset=asset;this.timeframe=timeframe;this.openTime=openTime;this.openPrice=openPrice;this.highPrice=highPrice;this.lowPrice=lowPrice;this.closePrice=closePrice;this.volume=volume;this.provider=provider;
  }
+ public AssetEntity getAsset(){return asset;}
+ public String getProvider(){return provider;}
  public Instant getOpenTime(){return openTime;}
  public BigDecimal getClosePrice(){return closePrice;}
 }
+

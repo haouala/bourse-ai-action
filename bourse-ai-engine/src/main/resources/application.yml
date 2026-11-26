@@ -1,9 +1,40 @@
+logging:
+  pattern:
+    level: "%5p [req:%X{requestId:-none}]"
+  level:
+    lu.bourse.engine.news: ${NEWS_LOG_LEVEL:INFO}
+
 server:
   port: ${SERVER_PORT:8081}
+  # Bind to loopback by default until user authorization is implemented and tested.
+  address: ${SERVER_BIND_ADDRESS:127.0.0.1}
+information:
+  ai:
+    enabled: ${INFORMATION_AI_ENABLED:false}
+    model: ${INFORMATION_AI_MODEL:gpt-5.4-mini-2026-03-17}
+    prompt-version: information-v1
+    lookback-days: ${INFORMATION_AI_LOOKBACK_DAYS:7}
+    worker-token: ${INFORMATION_WORKER_TOKEN:}
+    review-token: ${INFORMATION_REVIEW_TOKEN:}
+  catalog: ${INFORMATION_CATALOG:classpath:information-sources.json}
+  minimum-interval-seconds: ${INFORMATION_MINIMUM_INTERVAL_SECONDS:3600}
+  scheduler:
+    enabled: ${INFORMATION_SCHEDULER_ENABLED:false}
+    delay-ms: ${INFORMATION_SCHEDULER_DELAY_MS:60000}
+social:
+  x:
+    enabled: ${SOCIAL_X_ENABLED:false}
+    bearer-token: ${SOCIAL_X_BEARER_TOKEN:}
+    monthly-post-limit: ${SOCIAL_X_MONTHLY_POST_LIMIT:0}
+    base-url: https://api.x.com
 spring:
   application:
     name: bourse-ai-engine
   datasource:
+    # Bound pool prevents dozens of Spring test contexts exhausting PostgreSQL connections.
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 1
     url: jdbc:h2:mem:bourseai;MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
@@ -26,7 +57,31 @@ engine:
   max-positions: 5
   risk-per-trade-eur: 5
 
+# Scheduled research analysis uses already-imported closes. Daily repair has a separate switch.
+orchestrator:
+  enabled: ${ORCHESTRATOR_ENABLED:false}
+  max-per-tick: ${ORCHESTRATOR_MAX_PER_TICK:5}
+  delay-ms: ${ORCHESTRATOR_DELAY_MS:300000}
+  daily-repair:
+    enabled: ${ORCHESTRATOR_DAILY_REPAIR_ENABLED:false}
+    cron: "${ORCHESTRATOR_DAILY_REPAIR_CRON:0 0 17 * * MON-FRI}"
+    max-repairs: ${ORCHESTRATOR_DAILY_REPAIR_MAX_REPAIRS:5}
+
+admin:
+  monitor-token: ${ADMIN_MONITOR_TOKEN:}
+
+news:
+  bulk:
+    enabled: ${NEWS_BULK_ENABLED:false}
+    delay-ms: ${NEWS_BULK_DELAY_MS:3600000}
+    initial-delay-ms: ${NEWS_BULK_INITIAL_DELAY_MS:300000}
+    base-url: ${GDELT_BULK_BASE_URL:https://data.gdeltproject.org}
+
 market:
+  scheduler:
+    enabled: ${MARKET_SCHEDULER_ENABLED:false}
+    worker-delay-ms: ${MARKET_WORKER_DELAY_MS:10000}
+    monitor-delay-ms: ${PORTFOLIO_MONITOR_DELAY_MS:60000}
   quotas:
     providers:
       TWELVE_DATA:
@@ -45,6 +100,7 @@ market:
     base-url: https://api.gdeltproject.org
   sec:
     base-url: https://data.sec.gov
+    archives-base-url: https://www.sec.gov
     user-agent: ${SEC_USER_AGENT:}
   fmp:
     base-url: https://financialmodelingprep.com
@@ -52,3 +108,4 @@ market:
   eodhd:
     base-url: https://eodhd.com
     api-key: ${EODHD_API_KEY:}
+

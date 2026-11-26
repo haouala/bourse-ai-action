@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Bourse AI information collection four times per day
+
+[Timer]
+OnCalendar=*-*-* 06,12,18,22:00:00 Europe/Luxembourg
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Objects;
@@ -34,7 +35,7 @@ public class ProviderHttp {
         Objects.requireNonNull(operation, "A named provider operation is required");
         if (operation.quotaProvider() != null) quotas.reserve(operation.quotaProvider());
         try {
-            var response = client.get().uri(url).headers(headers -> {
+            var response = client.get().uri(URI.create(url)).headers(headers -> {
                 if (userAgent != null && !userAgent.isBlank()) headers.set(HttpHeaders.USER_AGENT, userAgent);
             }).retrieve().toEntity(String.class);
             if (!response.getStatusCode().is2xxSuccessful()) throw unavailable();
