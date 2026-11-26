@@ -31,6 +31,11 @@ public class AdminStatusController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
+        requireToken(token, authorization);
+        return status.read();
+    }
+
+    static void requireToken(String token, String authorization) {
         if (token.length() < 32) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE, "Administration monitoring is not configured");
         }
@@ -38,6 +43,5 @@ public class AdminStatusController {
                 ("Bearer " + token).getBytes(StandardCharsets.UTF_8), authorization.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(UNAUTHORIZED, "Administrator credential required");
         }
-        return status.read();
     }
 }
