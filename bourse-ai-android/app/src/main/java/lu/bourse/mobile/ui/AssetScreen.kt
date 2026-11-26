@@ -76,6 +76,7 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
             }
             Button(onClick = research, modifier = Modifier.fillMaxWidth()) { Text("Intelligence : prévisions, graphiques, ML et risque") }
         }
+        RelatedStocks(store, config, symbol)
         Button(onClick = explain, modifier = Modifier.fillMaxWidth()) { Text("Comprendre le score") }
         OutlinedButton(onClick = calendar, modifier = Modifier.fillMaxWidth()) { Text("Calendrier et données attendues") }
         TextButton(onClick = { refresh() }) { Text("Actualiser l’historique") }

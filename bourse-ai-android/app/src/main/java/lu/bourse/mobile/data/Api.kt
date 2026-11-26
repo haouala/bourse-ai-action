@@ -68,7 +68,11 @@ class HttpTransport(config: ConnectionConfig, debug: Boolean, private val adminT
         }.build()
         val payload = if (method in setOf("POST", "PUT")) (body?.toString() ?: "").toRequestBody("application/json; charset=utf-8".toMediaType()) else null
         val req = Request.Builder().url(url).header("Accept", "application/json").method(method, payload).apply {
-            if (method == "GET" && path == listOf("api", "v1", "admin", "status")) {
+            val adminStatus = method == "GET" && path == listOf("api", "v1", "admin", "status")
+            val confirmRelationship = method == "POST" && path.size == 7 &&
+                path.take(3) == listOf("api", "v1", "relationships") &&
+                path[4] == "suggestions" && path[6] == "confirm"
+            if (adminStatus || confirmRelationship) {
                 adminToken?.let { header("Authorization", "Bearer $it") }
             }
         }.build()
