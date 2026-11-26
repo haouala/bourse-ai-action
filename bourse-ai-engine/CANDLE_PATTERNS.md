@@ -68,8 +68,11 @@ Un serveur ancien ou un rapport de figures incompatible conserve les graphiques 
 affiche explicitement « Détection indisponible ». Aucune détection locale de secours.
 Le mode démo contient un exemple **fictif** de marteau, distinct des données serveur.
 
-Ce module ne change ni les scores, ni les variables ML, ni les alertes ou ordres.
-Son apport prédictif n’est pas validé par ces tests fonctionnels.
+Le détecteur de bougies reste une fonction pure. Ses sorties sont maintenant utilisées
+par l’[analyse technique enrichie](TECHNICAL_ANALYSIS.md), les scores V2 et les variables
+candidates du ML. L’application distingue les contributions brutes des points
+effectivement appliqués selon l’horizon. Les alertes et ordres ne sont pas modifiés.
+L’apport prédictif réel n’est pas validé par ces tests fonctionnels.
 
 ## Vérifications
 

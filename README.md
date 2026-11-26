@@ -70,6 +70,10 @@ Les nouvelles fonctionnalités Java ne sont pas toutes reliées aux écrans Kotl
 
 ## Architecture et commentaires de calcul
 
+L’[analyse technique V2](bourse-ai-engine/TECHNICAL_ANALYSIS.md) décrit les figures,
+les points d’opportunité/risque, leurs plafonds et la comparaison ML avec/sans
+variables enrichies. Les nouvelles données sont consultables dans Android 0.4.
+
 Lire [ARCHITECTURE_UNIFIEE.md](ARCHITECTURE_UNIFIEE.md) pour les flux Java/Python/Android, la gestion des données, les versions Flyway **V1–V18**, les formules de volatilité, drawdown, score, backtest et prédictions. Les services de calcul portent des commentaires décrivant les hypothèses et limites.
 
 Pour les détails des quotas et fournisseurs : [CONFIGURATION.md](bourse-ai-engine/CONFIGURATION.md).

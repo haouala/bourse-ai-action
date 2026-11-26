@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Descriptive, versioned OHLC rules. Never adds score points or changes ML inputs. */
+/** Pure, versioned OHLC detection. TechnicalAnalysis consumes these observations for scores and ML parity. */
 public final class CandlestickPatterns {
     private CandlestickPatterns() {}
     public record Bar(Instant openTime, Instant closeTime, BigDecimal open, BigDecimal high,

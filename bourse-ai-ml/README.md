@@ -1,5 +1,20 @@
 # Bourse AI ML - batch Python indépendant
 
+## Variables techniques du mode marché V2
+
+`train-market` compare maintenant les quatre variables de prix existantes à un jeu
+enrichi de 18 variables : bougies, confirmations datées, volume, triples, Elliott,
+Donchian, ATR, Bollinger et tendance SMA 20/50. Le Brier de validation choisit à la
+fois le modèle et le jeu de variables ; le test final reste réservé à la mesure.
+Le rapport publie `selectedFeatureSet` et `featureComparison`, visibles dans Android.
+Les valeurs manquantes ne deviennent pas de faux signaux neutres. Les anciens
+résultats restent consultables ; une nouvelle empreinte impose le réentraînement.
+
+Le prochain `train-market` utilise automatiquement ces variables si les OHLC et le
+calendrier qualifié sont disponibles. Un modèle de prix seuls peut rester retenu
+si sa validation est meilleure. Ce périmètre est distinct du mode **démo synthétique**
+`PRICE_ONLY/ENRICHED` décrit plus bas. Voir [méthodes, disponibilité et limites](../bourse-ai-engine/TECHNICAL_ANALYSIS.md).
+
 Python tourne dans un processus séparé, sur **la même base PostgreSQL que Java**, dans le schéma dédié `bourse_ml`. Le backend conserve ses tables et ses règles actives.
 
 Le mode démonstration utilise des données fictives reproductibles. Le mode marché lit les historiques qualifiés du backend PostgreSQL, compare deux modèles et publie les résultats de recherche, puis quitte. Aucun token fournisseur ou IA, ordre de bourse, ordonnanceur ou modification du budget de perte n'est utilisé.
