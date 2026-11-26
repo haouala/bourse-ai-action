@@ -5,7 +5,7 @@ import java.sql.*;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
-/** Upgrade a populated V7 schema through V25 in isolation; never alters the application's schema. */
+/** Upgrade a populated V7 schema through V26 in isolation; never alters the application's schema. */
 class MigrationUpgradeTest {
     @Test void v8PreservesExistingMarksAndBackfillsPolicyAndFxTimestamp()throws Exception{
         String configured=System.getenv("BOURSE_TEST_DB_URL"),url=configured==null||configured.isBlank()?"jdbc:h2:mem:upgrade_"+UUID.randomUUID()+";MODE=PostgreSQL;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1":configured;
@@ -34,7 +34,7 @@ class MigrationUpgradeTest {
                 try(var rows=sql.executeQuery("SELECT price_quote,observed_at,fx_observed_at FROM position_marks WHERE position_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getBigDecimal(1)).isEqualByComparingTo("95");assertThat(rows.getTimestamp(3)).isEqualTo(rows.getTimestamp(2));}
                 try(var rows=sql.executeQuery("SELECT calendar_code FROM asset_market_policies WHERE asset_id=1")){assertThat(rows.next()).isTrue();assertThat(rows.getString(1)).isEqualTo("US_EQUITIES");}
                 try(var rows=sql.executeQuery("SELECT COUNT(*) FROM daily_repair_runs")){assertThat(rows.next()).isTrue();assertThat(rows.getInt(1)).isZero();}
-                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("25");
+                assertThat(Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().toString()).isEqualTo("26");
             }finally{connection.setSchema("PUBLIC".equals(connection.getMetaData().getDatabaseProductName())?"PUBLIC":connection.getMetaData().getDatabaseProductName().equals("H2")?"PUBLIC":"public");connection.createStatement().execute("DROP SCHEMA \""+schema+"\" CASCADE");}
         }
     }

@@ -62,6 +62,14 @@ class AlpacaIntradayIntegrationTest extends DatabaseIntegrationSupport {
         assertThat(service.status().recent()).containsEntry("inserted",0);
     }
 
+    @Test void excludesBeforeFirstTradingDayUsingNewYorkDate() {
+        var recent = new AlpacaIntradayService.Asset(1,"RECENT",null,LocalDate.parse("2026-11-27"));
+        assertThat(recent.expects(Instant.parse("2026-11-27T00:00:00Z"))).isFalse();
+        assertThat(recent.expects(Instant.parse("2026-11-27T14:30:00Z"))).isTrue();
+        var unknown = new AlpacaIntradayService.Asset(2,"UNKNOWN",null,null);
+        assertThat(unknown.expects(Instant.parse("2026-11-26T14:30:00Z"))).isTrue();
+    }
+
     @Test void calendarUsesExchangeTimezoneEarlyClosesAndDelayedCutoff() throws Exception {
         var mapper = new ObjectMapper();
         var sessions = mapper.readTree("""

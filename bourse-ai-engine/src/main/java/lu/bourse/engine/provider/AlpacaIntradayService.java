@@ -27,7 +27,11 @@ public class AlpacaIntradayService {
     private final Clock clock;
     private final boolean enabled;
 
-    record Asset(long id, String symbol, LocalDate cursor) {}
+    record Asset(long id, String symbol, LocalDate cursor, LocalDate firstTradingDate) {
+        boolean expects(Instant open) {
+            return firstTradingDate == null || !LocalDate.ofInstant(open, NEW_YORK).isBefore(firstTradingDate);
+        }
+    }
     record Bar(long asset, String symbol, Instant open, Instant close,
                BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c, BigDecimal v) {}
     record Window(LocalDate from, LocalDate to) {}
@@ -51,7 +55,8 @@ public class AlpacaIntradayService {
         run("RECENT", assets(), new Window(today.minusDays(6), today), false);
     }
 
-    @Scheduled(cron = "${ALPACA_HISTORY_CRON:40 * * * * *}", zone = "America/New_York")
+    @Scheduled(cron = "${ALPACA_HISTORY_CRON:40 * 0-7,22-23 * * *}",
+            zone = "${ALPACA_HISTORY_ZONE:Europe/Luxembourg}")
     public synchronized void history() {
         if (!enabled || !client.configured()) return;
         LocalDate today = LocalDate.ofInstant(clock.instant(), NEW_YORK);
@@ -66,18 +71,21 @@ public class AlpacaIntradayService {
     }
 
     private LocalDate cursor(Asset asset, LocalDate oldest) {
-        return asset.cursor() == null || asset.cursor().isBefore(oldest) ? oldest : asset.cursor();
+        LocalDate start = asset.firstTradingDate() != null && asset.firstTradingDate().isAfter(oldest)
+                ? asset.firstTradingDate() : oldest;
+        return asset.cursor() == null || asset.cursor().isBefore(start) ? start : asset.cursor();
     }
 
     private List<Asset> assets() {
         return db.query("""
-                SELECT a.id, COALESCE(s.provider_symbol,a.symbol) AS symbol,p.next_date
+                SELECT a.id, COALESCE(s.provider_symbol,a.symbol) AS symbol,p.next_date,a.first_trading_date
                 FROM assets a JOIN watchlist w ON w.asset_id=a.id
                 LEFT JOIN asset_provider_symbols s ON s.asset_id=a.id AND s.provider='ALPACA'
                 LEFT JOIN alpaca_history_progress p ON p.asset_id=a.id
                 WHERE w.enabled=TRUE AND w.region='US' AND a.currency='USD' AND a.asset_type IN ('STOCK','ETF')
                 ORDER BY a.id
-                """, (row,i) -> new Asset(row.getLong("id"),row.getString("symbol"),row.getObject("next_date", LocalDate.class)));
+                """, (row,i) -> new Asset(row.getLong("id"),row.getString("symbol"),row.getObject("next_date", LocalDate.class),
+                        row.getObject("first_trading_date", LocalDate.class)));
     }
 
     private void run(String mode, List<Asset> assets, Window window, boolean advance) {
@@ -162,7 +170,7 @@ public class AlpacaIntradayService {
                     for (JsonNode bar : entry.getValue()) {
                         Instant open = Instant.parse(bar.path("t").asText());
                         Instant close = slots.get(open);
-                        if (close != null) result.add(decode(asset,bar,open,close));
+                        if (close != null && asset.expects(open)) result.add(decode(asset,bar,open,close));
                     }
                 }
                 cursor = response.path("next_page_token").asText(null);
@@ -213,11 +221,11 @@ public class AlpacaIntradayService {
                 """,(r,i) -> Map.entry(r.getTimestamp(1).toInstant(),r.getInt(2)),asset.id(),
                     Timestamp.from(slots.firstKey()),Timestamp.from(slots.lastKey()));
             int present=0;
-            for (var candle : checked) if (slots.containsKey(candle.getKey())) {
+            for (var candle : checked) if (slots.containsKey(candle.getKey()) && asset.expects(candle.getKey())) {
                 present++;
                 differences+=candle.getValue();
             }
-            missing+=slots.size()-present;
+            missing += (int) slots.keySet().stream().filter(asset::expects).count() - present;
         }
         return new Counts(bars.size(),Arrays.stream(inserted).map(i -> Math.max(0,i)).sum(),differences,missing);
     }
@@ -225,7 +233,7 @@ public class AlpacaIntradayService {
     public Status status() {
         LocalDate stop = LocalDate.ofInstant(clock.instant(), NEW_YORK).minusDays(7);
         List<Asset> watched = assets();
-        int pending = (int) watched.stream().filter(a -> a.cursor()==null || !a.cursor().isAfter(stop)).count();
+        int pending = (int) watched.stream().filter(a -> !cursor(a, stop.minusYears(7)).isAfter(stop)).count();
         return new Status(!enabled ? "DISABLED" : !client.configured() ? "NOT_CONFIGURED" : "ENABLED",
                 watched.size(), pending, latest("RECENT"), latest("HISTORY"));
     }
