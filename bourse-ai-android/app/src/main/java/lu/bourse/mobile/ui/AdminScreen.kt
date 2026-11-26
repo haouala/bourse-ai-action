@@ -85,6 +85,9 @@ fun AdminScreen(config: ConnectionConfig) {
         val providers = data?.list("providers").orEmpty()
         val repair = data?.child("repair")
         val ml = data?.child("ml")
+        val alpaca = data?.child("alpaca")
+        val alpacaRecent = alpaca?.child("recent")
+        val alpacaHistory = alpaca?.child("historical")
         val tiles = listOf(
             AdminTileModel("system", "Serveur et base",
                 when {
@@ -114,6 +117,14 @@ fun AdminScreen(config: ConnectionConfig) {
                 else -> "UNKNOWN"
             }),
             AdminTileModel("ml", "Dernier calcul ML", if (ml?.text("lastRun") == null) "NEVER_RUN" else "OK"),
+            AdminTileModel("alpaca", "Alpaca · 15 min", when {
+                alpacaRecent?.text("status") == "FAILED" || alpacaHistory?.text("status") == "FAILED" -> "FAILED"
+                (alpacaRecent?.id("missing") ?: 0) > 0 || (alpacaRecent?.id("differences") ?: 0) > 0 -> "INCOMPLETE"
+                alpacaRecent?.text("status") == "RUNNING" -> "RUNNING"
+                alpaca?.text("state") == "ENABLED" && alpacaRecent?.text("status") == "SUCCESS" -> "OK"
+                alpaca?.text("state") == "DISABLED" -> "DISABLED"
+                else -> "UNKNOWN"
+            }),
         )
         tiles.chunked(2).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -178,6 +189,18 @@ fun AdminScreen(config: ConnectionConfig) {
                                     }
                                 }
                             }
+                        }
+                        if (section == "alpaca") Panel("Import SIP différé") {
+                            KeyValue("Configuration", when (alpaca?.text("state")) {
+                                "ENABLED" -> "Activé"
+                                "DISABLED" -> "Désactivé"
+                                "NOT_CONFIGURED" -> "Identifiants absents"
+                                else -> "Indisponible"
+                            })
+                            KeyValue("Actifs suivis", alpaca?.id("historyAssets")?.toString() ?: "—")
+                            KeyValue("Actifs avec historique à parcourir", alpaca?.id("pendingAssets")?.toString() ?: "—")
+                            AlpacaRun("Fenêtre récente", alpacaRecent)
+                            AlpacaRun("Dernier lot historique", alpacaHistory)
                         }
                         if (section == "ml") {
                             Panel("Dernier entraînement ML") {
@@ -308,3 +331,22 @@ private fun localTime(value: String?): String = value?.let {
             .withZone(ZoneId.systemDefault()).format(Instant.parse(it))
     }.getOrDefault("Indisponible")
 } ?: "Non observé"
+
+@Composable
+private fun AlpacaRun(title: String, run: JsonObject?) {
+    HorizontalDivider()
+    Text(title, style = MaterialTheme.typography.titleSmall)
+    if (run == null) {
+        Text("Aucun passage enregistré")
+        return
+    }
+    KeyValue("État", adminState(run.text("status")))
+    KeyValue("Période", "${display(run.text("from_date"))} → ${display(run.text("to_date"))}")
+    KeyValue("Fin du passage", localTime(run.text("finished_at")))
+    if (run.text("status") == "SUCCESS") {
+        KeyValue("Bougies reçues / ajoutées", "${number(run, "observed")} / ${number(run, "inserted")}")
+        KeyValue("Écarts OHLC conservés", number(run, "differences").toString())
+        KeyValue("Créneaux sans bougie", number(run, "missing").toString())
+    }
+    run.text("error_code")?.let { KeyValue("Erreur", it) }
+}

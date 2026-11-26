@@ -20,12 +20,13 @@ public class AdminStatusService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final AdminMarketCoverage market;
+    private final lu.bourse.engine.provider.AlpacaIntradayService alpaca;
     private final boolean repairEnabled;
     private final CronExpression repairCron;
 
     public record Snapshot(Instant checkedAt, String backend, String database, Repair repair,
                            AdminMarketCoverage.Coverage market, List<Batch> batches,
-                           List<Provider> providers, Ml ml) {}
+                           List<Provider> providers, Ml ml, lu.bourse.engine.provider.AlpacaIntradayService.Status alpaca) {}
     public record Repair(String state, Instant expectedAt, Instant nextAt, Instant startedAt, Instant finishedAt,
                          Integer missing, Integer attempted, Integer inserted) {}
     public record Batch(String name, String state, Instant lastSuccess, Instant lastActivity,
@@ -35,11 +36,13 @@ public class AdminStatusService {
     public record Ml(String mode, String horizon, Instant lastRun, Instant dataCutoff, int predictions) {}
 
     public AdminStatusService(JdbcTemplate jdbc, Clock clock, AdminMarketCoverage market,
+            lu.bourse.engine.provider.AlpacaIntradayService alpaca,
             @Value("${orchestrator.daily-repair.enabled:false}") boolean repairEnabled,
             @Value("${orchestrator.daily-repair.cron:0 0 17 * * MON-FRI}") String repairCron) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.market = market;
+        this.alpaca = alpaca;
         this.repairEnabled = repairEnabled && !"-".equals(repairCron);
         this.repairCron = this.repairEnabled ? CronExpression.parse(repairCron) : null;
     }
@@ -49,7 +52,7 @@ public class AdminStatusService {
         try {
             jdbc.queryForObject("SELECT 1", Integer.class);
         } catch (DataAccessException unavailable) {
-            return new Snapshot(now, "UP", "DOWN", null, null, null, null, null);
+            return new Snapshot(now, "UP", "DOWN", null, null, null, null, null, null);
         }
         return new Snapshot(now, "UP", "UP", check(() -> repair(now)), check(() -> market.read(now)),
                 List.of(
@@ -57,7 +60,7 @@ public class AdminStatusService {
                         batch("RESEARCH", "orchestration_assessments", "SUCCEEDED", "FAILED", now),
                         batch("INFORMATION_AI", "information_ai_jobs", "SUCCEEDED", "FAILED", now),
                         batch("GDELT", "gdelt_bulk_runs", "SUCCESS", "FAILED", now)),
-                check(() -> providers(now)), check(this::ml));
+                check(() -> providers(now)), check(this::ml), check(alpaca::status));
     }
 
     private Repair repair(Instant now) {
