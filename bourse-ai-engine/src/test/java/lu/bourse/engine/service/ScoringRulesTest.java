@@ -27,4 +27,12 @@ class ScoringRulesTest {
   assertThatThrownBy(()->ScoringRules.calculate(Double.NaN,-4,.01,0,null,null,0,null))
    .isInstanceOf(IllegalArgumentException.class);
  }
+ @Test void technicalPointsStayBoundedAndNeverInventReliability(){
+  var base=ScoringRules.calculate(30,-90,.05,0,null,null,0,null);
+  var enriched=ScoringRules.withTechnical(base,8,8);
+  assertThat(enriched.opportunity()).isBetween(0,100);assertThat(enriched.risk()).isEqualTo(100);
+  assertThat(enriched.reliability()).isNull();assertThat(enriched.reasons()).anyMatch(s->s.contains("TECHNICAL_SCORE_V2"));
+  assertThatThrownBy(()->ScoringRules.withTechnical(base,9,0)).isInstanceOf(IllegalArgumentException.class);
+  assertThatThrownBy(()->ScoringRules.withTechnical(base,0,-1)).isInstanceOf(IllegalArgumentException.class);
+ }
 }

@@ -8,6 +8,8 @@ import lu.bourse.engine.persistence.SqlIds;
 import lu.bourse.engine.seasonality.SeasonalityService;
 import lu.bourse.engine.service.FinancialIndicators;
 import lu.bourse.engine.service.Timeframe;
+import lu.bourse.engine.service.ClosedMarketHistory;
+import lu.bourse.engine.service.TechnicalAnalysis;
 import lu.bourse.engine.social.SocialSignalService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,7 +25,8 @@ import static org.springframework.http.HttpStatus.*;
 /** Versioned heuristic contributions, not gain probabilities or executable orders. */
 @Service
 public class ExplanationService {
-    public static final String METHOD="EXPLAINABLE_RULES_V1_EXPERIMENTAL";
+    public static final String LEGACY_METHOD="EXPLAINABLE_RULES_V1_EXPERIMENTAL";
+    public static final String METHOD="EXPLAINABLE_RULES_V2_TECHNICAL";
     public enum Horizon { DAY,MONTH,YEAR }
     public record Rules(int technicalMax,int fundamentalMax,int informationMax,BigDecimal marginChangeThreshold,BigDecimal rsiOversold,BigDecimal rsiOverbought){}
     public record NewRules(String name,Rules rules){}
@@ -35,12 +38,13 @@ public class ExplanationService {
     private final JdbcTemplate db;private final Clock clock;private final ObjectMapper json;private final org.springframework.transaction.support.TransactionTemplate bootstrap;
     private final MarketCalendarService calendars;private final SeasonalityService seasonality;private final SocialSignalService social;
     private final lu.bourse.engine.information.InformationAnalysisService informationAnalyses;
-    public ExplanationService(JdbcTemplate db,Clock clock,ObjectMapper json,MarketCalendarService calendars,SeasonalityService seasonality,SocialSignalService social,org.springframework.transaction.PlatformTransactionManager manager,lu.bourse.engine.information.InformationAnalysisService informationAnalyses){this.db=db;this.clock=clock;this.json=json;this.calendars=calendars;this.seasonality=seasonality;this.social=social;this.bootstrap=new org.springframework.transaction.support.TransactionTemplate(manager);this.informationAnalyses=informationAnalyses;}
+    private final ClosedMarketHistory history;
+    public ExplanationService(JdbcTemplate db,Clock clock,ObjectMapper json,MarketCalendarService calendars,SeasonalityService seasonality,SocialSignalService social,org.springframework.transaction.PlatformTransactionManager manager,lu.bourse.engine.information.InformationAnalysisService informationAnalyses,ClosedMarketHistory history){this.db=db;this.clock=clock;this.json=json;this.calendars=calendars;this.seasonality=seasonality;this.social=social;this.bootstrap=new org.springframework.transaction.support.TransactionTemplate(manager);this.informationAnalyses=informationAnalyses;this.history=history;}
     @PostConstruct void seed(){bootstrap.executeWithoutResult(status->{db.queryForObject("SELECT id FROM explanation_guard WHERE id=1 FOR UPDATE",Integer.class);seedUnlocked();});}
     private void seedUnlocked(){
-        for(Horizon h:Horizon.values())if(db.queryForObject("SELECT COUNT(*) FROM explanation_rulesets WHERE name=?",Integer.class,"DEFAULT_"+h+"_V1")==0){
+        for(Horizon h:Horizon.values())for(String version:List.of("V1","V2"))if(db.queryForObject("SELECT COUNT(*) FROM explanation_rulesets WHERE name=?",Integer.class,"DEFAULT_"+h+"_"+version)==0){
             Rules r=switch(h){case DAY->new Rules(20,5,20,new BigDecimal("3"),new BigDecimal("30"),new BigDecimal("70"));case MONTH->new Rules(15,15,20,new BigDecimal("3"),new BigDecimal("30"),new BigDecimal("70"));case YEAR->new Rules(10,25,15,new BigDecimal("3"),new BigDecimal("30"),new BigDecimal("70"));};
-            db.update("INSERT INTO explanation_rulesets(name,method,configuration_json,created_at) VALUES (?,?,?,CURRENT_TIMESTAMP)","DEFAULT_"+h+"_V1",METHOD,write(r));
+            db.update("INSERT INTO explanation_rulesets(name,method,configuration_json,created_at) VALUES (?,?,?,CURRENT_TIMESTAMP)","DEFAULT_"+h+"_"+version,version.equals("V1")?LEGACY_METHOD:METHOD,write(r));
         }
     }
     @Transactional public long createRules(NewRules r){
@@ -53,14 +57,15 @@ public class ExplanationService {
     @Transactional public Analysis calculate(String symbol,Horizon horizon,Long requestedRules){
         if(horizon==null)bad("Horizon required");long asset=calendars.assetId(symbol);Instant now=clock.instant();
         db.queryForObject("SELECT id FROM explanation_guard WHERE id=1 FOR UPDATE",Integer.class);
-        long rulesId=requestedRules==null?db.queryForObject("SELECT id FROM explanation_rulesets WHERE name=?",Long.class,"DEFAULT_"+horizon+"_V1"):requestedRules;
+        long rulesId=requestedRules==null?db.queryForObject("SELECT id FROM explanation_rulesets WHERE name=?",Long.class,"DEFAULT_"+horizon+"_V2"):requestedRules;
         var stored=db.queryForList("SELECT * FROM explanation_rulesets WHERE id=?",rulesId);if(stored.isEmpty())throw new ResponseStatusException(NOT_FOUND,"Unknown ruleset");
         Rules config=read((String)stored.getFirst().get("configuration_json"),Rules.class);validate(config);
-        var factors=new ArrayList<Factor>();technical(asset,switch(horizon){case DAY->"15m";case MONTH->"1h";case YEAR->"1d";},config,now,factors);
+        String method=(String)stored.getFirst().get("method");boolean enriched=METHOD.equals(method);
+        var factors=new ArrayList<Factor>();technical(symbol,switch(horizon){case DAY->"15m";case MONTH->"1h";case YEAR->"1d";},config,now,enriched,factors);
         boolean crypto="CRYPTO".equals(db.queryForObject("SELECT asset_type FROM assets WHERE id=?",String.class,asset));
         fundamental(asset,config,now,crypto,factors);information(asset,config,horizon,factors);
         factors.add(new Factor("SEASONALITY","SEASONALITY",BigDecimal.ZERO,"EXPLORATORY_ONLY","Statistiques mensuelles, trimestrielles et annuelles ; contribution nulle avant validation indépendante.",seasonality.analyze(symbol,now)));
-        var quality=quoteQuality(asset,now);int expected=(config.technicalMax()>0?2:0)+(!crypto&&config.fundamentalMax()>0?1:0)+(config.informationMax()>0?1:0);
+        var quality=quoteQuality(asset,now);int expected=(config.technicalMax()>0?(enriched?3:2):0)+(!crypto&&config.fundamentalMax()>0?1:0)+(config.informationMax()>0?1:0);
         int available=(int)factors.stream().filter(f->f.category().equals("TECHNICAL")&&f.status().equals("AVAILABLE")).count();
         if(factors.stream().anyMatch(f->f.category().equals("FUNDAMENTAL")&&f.status().equals("AVAILABLE")))available++;
         if(factors.stream().anyMatch(f->f.category().equals("INFORMATION")&&f.status().equals("AVAILABLE")))available++;
@@ -75,21 +80,30 @@ public class ExplanationService {
         }
         var limits=List.of("Score heuristique expérimental ; aucune probabilité de gain ni ordre automatique","CoverageScore mesure les composantes disponibles, pas une confiance de prédiction","Les explications attribuent les points du modèle ; elles ne prouvent pas la cause d'un mouvement du cours","Cours ajustés, qualité des imports, frais et tests indépendants restent à vérifier","Événements sociaux et attributions validés manuellement ; propositions IA soumises à une approbation traçable avant contribution");
         long id=SqlIds.insert(db,"INSERT INTO explanation_snapshots(asset_id,ruleset_id,horizon,as_of,computed_at,score,coverage_score,status,result_json) VALUES (?,?,?,?,?,?,?,?,?)",asset,rulesId,horizon.name(),ts(now),ts(now),score,coverage,status,"{}");
-        var result=new Analysis(id,symbol.toUpperCase(Locale.ROOT),horizon,rulesId,METHOD,now,score,coverage,status,quality,List.copyOf(factors),previousId,previousScore,change,changes,changedRules,limits);
+        var result=new Analysis(id,symbol.toUpperCase(Locale.ROOT),horizon,rulesId,method,now,score,coverage,status,quality,List.copyOf(factors),previousId,previousScore,change,changes,changedRules,limits);
         db.update("UPDATE explanation_snapshots SET result_json=? WHERE id=?",write(result),id);
         for(Factor f:factors)db.update("INSERT INTO explanation_factors(snapshot_id,factor_key,category,points,explanation,evidence_json) VALUES (?,?,?,?,?,?)",id,f.key(),f.category(),round(f.points()),f.explanation(),write(f.evidence()));
         return result;
     }
-    private void technical(long asset,String tf,Rules rules,Instant now,List<Factor> factors){
+    private void technical(String symbol,String tf,Rules rules,Instant now,boolean enriched,List<Factor> factors){
         if(rules.technicalMax()==0){for(String key:List.of("MACD","RSI"))factors.add(new Factor("TECH_"+key,"TECHNICAL",BigDecimal.ZERO,"DISABLED","Règle technique désactivée dans cette version.",Map.of()));return;}
-        var period=Timeframe.parse(tf);var rows=db.queryForList("SELECT id,open_time,close_price,provider FROM market_candles WHERE asset_id=? AND timeframe=? AND open_time<=? ORDER BY open_time DESC LIMIT 250",asset,tf,ts(now));
-        var bars=rows.stream().filter(r->!calendars.barClose(asset,SqlIds.instant(r.get("open_time")),period.duration()).isAfter(now)).toList();
+        var h=history.load(symbol,tf,250,now);var bars=h.bars();boolean fresh=h.freshness().equals("AT_LAST_CLOSE");
+        if(enriched){
+            var analysis=TechnicalAnalysis.analyze(bars);boolean usable=fresh&&analysis.continuousCandles()>=5;
+            BigDecimal reserved=BigDecimal.valueOf(rules.technicalMax()).multiply(new BigDecimal("0.2"));
+            BigDecimal points=usable?reserved.multiply(BigDecimal.valueOf(analysis.opportunityDelta())).divide(BigDecimal.valueOf(8),8,RoundingMode.HALF_UP):BigDecimal.ZERO;
+            var evidence=new LinkedHashMap<String,Object>();evidence.put("symbol",h.symbol());evidence.put("timeframe",tf);evidence.put("currency",h.currency());
+            evidence.put("asOf",now);evidence.put("referenceTime",bars.isEmpty()?null:bars.getLast().openTime());
+            evidence.put("status",usable?"EXPERIMENTAL":h.freshness());evidence.put("usable",usable);
+            evidence.put("analysis",analysis);evidence.put("reservedBudget",reserved);evidence.put("freshness",h.freshness());
+            factors.add(new Factor("TECH_PATTERNS","TECHNICAL",points,usable?"AVAILABLE":bars.isEmpty()?"MISSING":fresh?"MISSING":"STALE",
+                    "Figures, tendance et structure : 20 % du budget technique réservé en V2 ; contribution proportionnelle plafonnée. Les points de risque sont présentés séparément dans le score de risque.",evidence));
+        }
         if(bars.size()<35){for(String k:List.of("MACD","RSI"))factors.add(missing("TECH_"+k,"TECHNICAL","Au moins 35 bougies closes requises sur "+tf));return;}
-        var prices=new ArrayList<BigDecimal>();for(int i=bars.size()-1;i>=0;i--)prices.add((BigDecimal)bars.get(i).get("close_price"));
-        var indicator=FinancialIndicators.calculate(prices);BigDecimal max=BigDecimal.valueOf(rules.technicalMax()).divide(new BigDecimal("2"));
-        var data=new LinkedHashMap<String,Object>();data.put("timeframe",tf);data.put("indicators",indicator);data.put("candles",bars.stream().map(ExplanationService::lower).toList());
-        var state=calendars.state(asset,period.duration(),now);Instant last=calendars.barClose(asset,SqlIds.instant(bars.getFirst().get("open_time")),period.duration());
-        boolean fresh=state.expectedClose()!=null&&!last.isBefore(state.expectedClose());String status=fresh?"AVAILABLE":"STALE";
+        var prices=bars.stream().map(lu.bourse.engine.service.CandlestickPatterns.Bar::close).toList();
+        var indicator=FinancialIndicators.calculate(prices);BigDecimal max=BigDecimal.valueOf(rules.technicalMax()).multiply(enriched?new BigDecimal("0.4"):new BigDecimal("0.5"));
+        var data=new LinkedHashMap<String,Object>();data.put("timeframe",tf);data.put("indicators",indicator);data.put("candles",bars);
+        String status=fresh?"AVAILABLE":"STALE";
         factors.add(new Factor("TECH_MACD","TECHNICAL",fresh?max.multiply(BigDecimal.valueOf(indicator.macdHistogram().signum())):BigDecimal.ZERO,status,"MACD = EMA12 − EMA26 ; signal = EMA9 du MACD. Histogramme positif : contribution favorable selon cette règle ; négatif : défavorable. Série "+tf+".",data));
         int sign=indicator.rsi14().compareTo(rules.rsiOversold())<0?1:indicator.rsi14().compareTo(rules.rsiOverbought())>0?-1:0;
         factors.add(new Factor("TECH_RSI","TECHNICAL",fresh?max.multiply(BigDecimal.valueOf(sign)):BigDecimal.ZERO,status,"RSI14 = "+indicator.rsi14()+" ; seuils "+rules.rsiOversold()+" / "+rules.rsiOverbought()+". Un extrême bas est favorable à examiner selon la règle, sans garantir un rebond.",data));

@@ -28,7 +28,24 @@ class DemoTransport : Transport {
             val open = price.multiply(BigDecimal("0.999")); val closesAt = anchor.minusSeconds((47 - i) * seconds)
             bars.add(obj("openTime" to closesAt.minusSeconds(seconds), "closeTime" to closesAt, "open" to open, "high" to price.multiply(BigDecimal("1.003")), "low" to price.multiply(BigDecimal("0.997")), "close" to price, "volume" to 100000, "provider" to "DEMO_SYNTHETIC"))
         }
-        return obj("symbol" to symbol, "timeframe" to timeframe, "currency" to "USD", "candles" to bars, "latestIndicators" to obj("sma20" to base * 1.028, "rsi14" to 56.2, "macd" to 0.84, "macdSignal" to 0.65, "macdHistogram" to 0.19), "warning" to "FICTITIOUS_DEMO_DATA")
+        // Explicit fictional hammer example, scaled to the asset; no live detection is simulated.
+        listOf(1.09, 1.07, 1.05, 1.01).forEachIndexed { n, multiplier ->
+            val bar = bars[43 + n].asJsonObject
+            val close = BigDecimal.valueOf(base * multiplier)
+            bar.addProperty("open", close + BigDecimal.valueOf(base * .01))
+            bar.addProperty("high", close + BigDecimal.valueOf(base * .02))
+            bar.addProperty("low", close - BigDecimal.valueOf(base * .01))
+            bar.addProperty("close", close)
+        }
+        val last = bars[47].asJsonObject
+        last.addProperty("open", base); last.addProperty("close", base * 1.01)
+        last.addProperty("high", base * 1.012); last.addProperty("low", base * .96)
+        last.addProperty("volume", 200000)
+        val patterns = obj("method" to "OHLC_PATTERNS_V1", "status" to "AVAILABLE", "inspectedCandles" to 12,
+            "patterns" to JsonArray().apply { add(obj("code" to "HAMMER", "direction" to "BULLISH",
+                "openTime" to last.required("openTime"), "closeTime" to last.required("closeTime"),
+                "confirmation" to "AWAITING_NEXT_BAR", "volumeRatio" to 2, "volumeStatus" to "ABOVE_USUAL")) })
+        return obj("symbol" to symbol, "timeframe" to timeframe, "currency" to "USD", "candles" to bars, "latestIndicators" to obj("sma20" to base * 1.028, "rsi14" to 56.2, "macd" to 0.84, "macdSignal" to 0.65, "macdHistogram" to 0.19), "warning" to "FICTITIOUS_DEMO_DATA", "patternAnalysis" to patterns)
     }
     override suspend fun request(method: String, path: List<String>, query: Map<String, String>, body: JsonObject?): JsonElement {
         research.request(method, path, query)?.let { return it }

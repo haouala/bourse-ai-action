@@ -14,7 +14,8 @@ import java.util.*;
 @Service
 public class DataQualityService {
  private final JdbcTemplate jdbc;
- public DataQualityService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
+ private final ClosedMarketHistory history;private final java.time.Clock clock;
+ public DataQualityService(JdbcTemplate jdbc,ClosedMarketHistory history,java.time.Clock clock) { this.jdbc=jdbc;this.history=history;this.clock=clock; }
  public record Issue(String code,String severity,Instant time,String detail) {}
  public record Report(String symbol,String timeframe,int candleCount,int independentProviderMatches,
                       String status,Instant latestCandle,List<Issue> issues) {}
@@ -27,8 +28,8 @@ public class DataQualityService {
   List<String> currencies=jdbc.query("SELECT currency FROM assets WHERE symbol=?", (r,i)->r.getString(1),symbol);
   if(currencies.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Unknown asset");
   String currency=currencies.get(0);
-  List<Bar> bars=jdbc.query("SELECT c.open_time,c.open_price,c.high_price,c.low_price,c.close_price,c.volume,c.provider FROM market_candles c JOIN assets a ON a.id=c.asset_id WHERE a.symbol=? AND c.timeframe=? ORDER BY c.open_time ASC",
-   (r,i)->new Bar(r.getTimestamp(1).toInstant(),r.getBigDecimal(2),r.getBigDecimal(3),r.getBigDecimal(4),r.getBigDecimal(5),r.getBigDecimal(6),r.getString(7)),symbol,timeframe);
+  List<Bar> bars=history.load(symbol,timeframe,10000,clock.instant()).bars().stream()
+   .map(b->new Bar(b.openTime(),b.open(),b.high(),b.low(),b.close(),b.volume(),b.provider())).toList();
   List<Observation> observations=jdbc.query("SELECT p.open_time,p.close_price,p.provider,p.currency,p.price_adjustment FROM provider_price_observations p JOIN assets a ON a.id=p.asset_id WHERE a.symbol=? AND p.timeframe=?",
    (r,i)->new Observation(r.getTimestamp(1).toInstant(),r.getBigDecimal(2),r.getString(3),r.getString(4),r.getString(5)),symbol,timeframe);
   Map<Instant,List<Observation>> byTime=new HashMap<>();
@@ -58,7 +59,7 @@ public class DataQualityService {
    previous=b.time();previousClose=b.close();
   }
   Instant latest=bars.isEmpty()?null:bars.get(bars.size()-1).time();
-  if(latest!=null && Duration.between(latest,Instant.now()).toHours()>(timeframe.equals("1d")?120:timeframe.equals("1h")?8:2))
+  if(latest!=null && Duration.between(latest,clock.instant()).toHours()>(timeframe.equals("1d")?120:timeframe.equals("1h")?8:2))
    issues.add(new Issue("STALE_DATA","WARN",latest,"Latest price may be stale; market holidays not accounted for"));
   if(matches==0)issues.add(new Issue("NO_INDEPENDENT_CONFIRMATION","WARN",latest,"No matching observation from a distinct provider"));
   String status=issues.stream().anyMatch(i->i.severity().equals("BLOCK"))?"BLOCKED":issues.isEmpty()?"PASS":"REVIEW";

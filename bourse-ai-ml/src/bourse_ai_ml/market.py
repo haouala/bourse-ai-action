@@ -7,6 +7,7 @@ import re
 from statistics import pstdev
 
 from .domain import DataError, HORIZONS
+from .technical import FEATURES as TECHNICAL_FEATURES, features as technical_features
 
 LOOKBACK = 20
 PRICE_FEATURES = ("return_5", "return_20", "volatility_20", "close_to_sma_20")
@@ -27,7 +28,10 @@ SERIES_SQL = """
     SELECT a.symbol,a.currency,a.provider,s.session_date,s.opens_at,s.closes_at,
            a.delivery_grace_seconds,
            COALESCE(c.open_price,o.open_price) AS open_price,
-           COALESCE(c.close_price,o.close_price) AS close_price
+           COALESCE(c.close_price,o.close_price) AS close_price,
+           COALESCE(c.high_price,o.high_price) AS high_price,
+           COALESCE(c.low_price,o.low_price) AS low_price,
+           COALESCE(c.volume,o.volume) AS volume
     FROM selected a
     LEFT JOIN public.market_sessions s ON s.calendar_code=a.calendar_code
         AND s.opens_at IS NOT NULL AND s.session_date BETWEEN %s AND %s
@@ -51,6 +55,9 @@ class Session:
     available_at: datetime
     open_price: float | None
     close_price: float | None
+    high_price: float | None = None
+    low_price: float | None = None
+    volume: float | None = None
 
 
 @dataclass(frozen=True)
@@ -60,7 +67,7 @@ class Event:
     provider: str
     day: date
     as_of: datetime
-    features: tuple[float, ...]
+    features: tuple[float | None, ...]
     entry_at: datetime | None = None
     label_at: datetime | None = None
     net_return: float | None = None
@@ -70,13 +77,14 @@ class Event:
 class MarketDataset:
     events: list[Event]
     coverage: list[dict]
+    feature_names: tuple[str, ...] = PRICE_FEATURES
 
 
 def build_events(symbol, currency, provider, sessions, horizon, cost_bps):
     result = []
     for index in range(LOOKBACK, len(sessions)):
         window = sessions[index - LOOKBACK:index + 1]
-        if any(s.close_price is None for s in window):
+        if any(s.close_price is None or not math.isfinite(s.close_price) or s.close_price <= 0 for s in window):
             continue
         closes = [s.close_price for s in window]
         close = closes[-1]
@@ -85,10 +93,13 @@ def build_events(symbol, currency, provider, sessions, horizon, cost_bps):
             close / closes[-6] - 1, close / closes[0] - 1,
             pstdev(returns), close / (sum(closes[1:]) / LOOKBACK) - 1,
         )
+        features += technical_features(sessions[max(0, index-249):index+1])
         signal = window[-1]
         future = sessions[index + 1:index + 1 + horizon]
         if (len(future) == horizon and future[0].opens_at > signal.available_at
-                and all(s.open_price is not None and s.close_price is not None for s in future)):
+                and all(s.open_price is not None and s.close_price is not None
+                        and math.isfinite(s.open_price) and math.isfinite(s.close_price)
+                        and s.open_price > 0 and s.close_price > 0 for s in future)):
             entry, exit_session = future[0], future[-1]
             net = exit_session.close_price / entry.open_price - 1 - cost_bps / 10_000
             result.append(Event(symbol, currency, provider, signal.day, signal.available_at, features,
@@ -119,7 +130,10 @@ def read_market(conn, start, cutoff, horizon, cost_bps, symbols=()):
             Session(r["session_date"], r["opens_at"], r["closes_at"],
                     r["closes_at"] + timedelta(seconds=r["delivery_grace_seconds"]),
                     float(r["open_price"]) if r["open_price"] is not None else None,
-                    float(r["close_price"]) if r["close_price"] is not None else None)
+                    float(r["close_price"]) if r["close_price"] is not None else None,
+                    float(r["high_price"]) if r["high_price"] is not None else None,
+                    float(r["low_price"]) if r["low_price"] is not None else None,
+                    float(r["volume"]) if r["volume"] is not None else None)
             for r in records if r["session_date"] is not None
         ]
         rows = build_events(symbol, records[0]["currency"], provider, sessions, HORIZONS[horizon], cost_bps) if sessions and provider else []
@@ -129,6 +143,7 @@ def read_market(conn, start, cutoff, horizon, cost_bps, symbols=()):
                          "priceSessions": sum(s.close_price is not None for s in sessions),
                          "lastExpectedDate": sessions[-1].day.isoformat() if sessions else None,
                          "observations": len(rows), "labels": sum(r.label_at is not None for r in rows),
+                         "technicalObservations": sum(r.features[-1] == 1. for r in rows),
                          "status": ("READY" if any(r.label_at is not None for r in rows)
                                     else "INSUFFICIENT_HISTORY" if provider else "UNQUALIFIED_OR_UNKNOWN")})
-    return MarketDataset(sorted(events, key=lambda r: (r.day, r.symbol)), coverage)
+    return MarketDataset(sorted(events, key=lambda r: (r.day, r.symbol)), coverage, PRICE_FEATURES + TECHNICAL_FEATURES)

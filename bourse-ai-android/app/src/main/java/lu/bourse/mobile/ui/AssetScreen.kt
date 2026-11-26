@@ -18,10 +18,12 @@ import lu.bourse.mobile.data.*
 fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: () -> Unit, research: () -> Unit = {}) {
     var timeframe by rememberSaveable { mutableStateOf("15m") }
     var table by rememberSaveable { mutableStateOf(false) }
+    var advanced by rememberSaveable(symbol) { mutableStateOf(false) }
     val config by store.config.collectAsStateWithLifecycle()
     val key = "chart:$symbol:$timeframe"
     fun refresh() = store.load(key, api("charts", symbol), mapOf("timeframe" to timeframe, "limit" to "250"))
     LaunchedEffect(symbol, timeframe, config) { refresh() }
+    LaunchedEffect(symbol, timeframe, config, advanced) { if (advanced) store.load("technical:$symbol:$timeframe", api("technical-analysis", symbol), mapOf("timeframe" to timeframe)) }
     val scoreKey = "asset-score:$symbol"
     LaunchedEffect(symbol, config) { store.load(scoreKey, api("scoring", symbol), mapOf("horizonDays" to "30")) }
     Page(symbol, "Historique des cours clôturés") {
@@ -39,6 +41,8 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                     }
                     Text(dateLabel(last.closesAt.toString()))
                     Text("Source : ${display(last.provider)} · ${chart.candles.size} bougies")
+                    KeyValue("Prix de la bougie · O / H / B / C", "${priceText(last.open)} / ${priceText(last.high)} / ${priceText(last.low)} / ${priceText(last.close)} ${chart.currency}")
+                    KeyValue("Volume échangé", priceText(last.volume))
                 }
                 val dates = remember(chart.candles) { chart.candles.map { it.closesAt } }
                 val prices = remember(chart.candles) { chart.candles.map { it.close.toDouble() } }
@@ -48,6 +52,14 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                     Text("Pincez pour zoomer, glissez horizontalement ou choisissez une date avec le curseur.")
                     MarketPlot("Cours et moyenne mobile", dates,
                         listOf(PlotLine("Clôture", prices, cyan), PlotLine("SMA 20", indicators.sma, RiskAccent)), chart.currency)
+                }
+                CandlePatternsPanel(chart)
+                OutlinedButton(onClick = { advanced = !advanced }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (advanced) "Masquer l’analyse technique avancée" else "Structure et indicateurs avancés")
+                }
+                if (advanced) Panel("Analyse technique · $timeframe") {
+                    Text("Cet écran décrit l’intervalle choisi. Les scores opportunité/risque ci-dessous utilisent la série journalière.")
+                    DataBlock(store, "technical:$symbol:$timeframe", decode = { it.objectValue() }) { TechnicalAnalysisContent(it) }
                 }
                 Panel("MACD · 12, 26, 9", accent = ResearchAccent) {
                     Text("Violet · MACD   Orange · signal   Vert / rouge · écart au signal")
@@ -72,6 +84,11 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                     ScoreRing("Opportunité / 100", score.decimal("opportunityScore")?.toFloat(), Rising)
                     ScoreRing("Risque / 100", score.decimal("riskScore")?.toFloat(), RiskAccent)
                     ScoreRing("Fiabilité / 100", score.decimal("reliabilityScore")?.toFloat(), ResearchAccent)
+                }
+                if (score.field("technicalOpportunityDelta") != null) {
+                    KeyValue("Points techniques inclus · opportunité", display(score.text("technicalOpportunityDelta")))
+                    KeyValue("Points techniques inclus · risque", display(score.text("technicalRiskDelta")))
+                    Text("Série journalière, horizon 30 jours. Détails dans Intelligence.", style = MaterialTheme.typography.bodySmall)
                 }
             }
             Button(onClick = research, modifier = Modifier.fillMaxWidth()) { Text("Intelligence : prévisions, graphiques, ML et risque") }

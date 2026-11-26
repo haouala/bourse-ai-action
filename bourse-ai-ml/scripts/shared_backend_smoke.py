@@ -87,11 +87,22 @@ def verify_real_path(conn, cli, port, output):
     assert not first["reused"] and again["reused"] and first["runId"] == again["runId"]
     assert len(first["predictions"]) == 1 and len(first["walkForward"]) == 3
     assert set(first["validationBrier"]) == {"LOGISTIC", "HIST_GRADIENT_BOOSTING"}
+    assert first["technicalStatus"] == "COMPARED"
+    assert "hammer" in first["candidateFeatures"] and "elliott_abc" in first["candidateFeatures"]
+    assert {c["featureSet"] for c in first["featureComparison"]} == {"PRICE_ONLY", "TECHNICAL_ENRICHED"}
     assert snapshot(conn, exclude=protected_tables) == before
     with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/ml/market/MLFIXTURE", timeout=3) as response:
         published = json.load(response)
     assert len(published) == 1 and published[0]["runId"] == first["runId"]
     assert published[0]["testCount"] == first["testCount"]
+    assert published[0]["featureSet"] == first["selectedFeatureSet"]
+    assert published[0]["features"] == first["features"]
+    assert len(published[0]["featureComparison"]) == 2
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/technical-analysis/MLFIXTURE", timeout=5) as response:
+        technical = json.load(response)
+    assert technical["analysis"]["method"] == "TECHNICAL_FEATURES_V1"
+    assert technical["analysis"]["features"]["ohlc_available"] == 1.
+    assert not technical["usable"]  # The fixture calendar ends in 2025; stale evidence cannot alter today's score.
     (output / "market-fixture-report.json").write_text(json.dumps(first, indent=2) + "\n")
     return {"fixture": "SYNTHETIC_PRICES_IN_JAVA_SCHEMA", "run_id": first["runId"],
             "second_run_reused": again["reused"], "api_verified": True, "test_count": first["testCount"]}
@@ -142,7 +153,8 @@ def main():
                 assert first['run_id']==again['run_id'] and again['reused']
                 after=snapshot(conn);assert before==after,'Java public data changed during ML batch'
                 with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/explanations/rulesets',timeout=3) as response:
-                    assert len(json.load(response))==3
+                    rules=json.load(response)
+                    assert len(rules)==6 and {r['method'] for r in rules}=={'EXPLAINABLE_RULES_V1_EXPERIMENTAL','EXPLAINABLE_RULES_V2_TECHNICAL'}
                 market_proof=verify_real_path(conn,cli,port,args.output)
                 proof={'market_adapter_training_api':market_proof,'same_postgresql_database':True,'java_remained_available':True,
                     'public_before':before,'public_after':after,'ml_schema':'bourse_ml',

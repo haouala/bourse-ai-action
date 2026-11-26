@@ -26,7 +26,7 @@ backend_apk = root / "outputs/apk/backend/app-backend.apk"
 assert apk.is_file() and backend_apk.is_file()
 data = {
     "sourceCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-    "androidVersion": "0.3.0", "minimumApi": 26, "targetApi": 35,
+    "androidVersion": json.loads((apk.parent / "output-metadata.json").read_text())["elements"][0]["versionName"], "minimumApi": 26, "targetApi": 35,
     "testTotals": totals, "testSuites": suites,
     "screenshots": [p.name for p in screens],
     "screenshotEngine": "Robolectric API 35 / native graphics / real Compose UI / local synthetic data",

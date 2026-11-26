@@ -21,4 +21,14 @@ class MarketModelsTest {
         assertEquals(100L, current.testCount)
         assertNull(stale.estimate)
     }
+    @Test fun selectedFeaturesAndAblationRemainExplicitAndOlderReportsStayCompatible(){
+        val payload=JsonParser.parseString("""[
+          {"horizon":"DAY","model":"LOGISTIC","asOf":"2026-11-24T21:03:00Z","status":"RESEARCH_ONLY","estimate":0.63,
+           "featureSet":"TECHNICAL_ENRICHED","featureComparison":[{"featureSet":"PRICE_ONLY","testBrier":0.25,"validationBrier":0.25},{"featureSet":"TECHNICAL_ENRICHED","testBrier":0.23,"validationBrier":0.22}]},
+          {"horizon":"MONTH","model":"LOGISTIC","asOf":"2026-11-24T21:03:00Z","status":"RESEARCH_ONLY","estimate":0.60}
+        ]""")
+        val parsed=marketModelResults(payload)
+        assertEquals("TECHNICAL_ENRICHED",parsed[0].featureSet);assertEquals(2,parsed[0].comparison.size)
+        assertEquals("PRICE_ONLY",parsed[1].featureSet);assertTrue(parsed[1].comparison.isEmpty())
+    }
 }

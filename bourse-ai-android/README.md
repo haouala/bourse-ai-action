@@ -8,6 +8,10 @@ Application native Kotlin / Jetpack Compose, Android 8.0 minimum (API 26), cible
 |---|---|
 | Marché | Actions et cryptos, recherche, filtres, ajout, activation/pause ; plafonds de 100 actions et 30 cryptos actives |
 | Graphiques | Historique 15 min, 30 min, 1 h et 1 jour, petites valeurs crypto, OHLC et indicateurs calculés par le serveur |
+| Figures de bougies | Marteau, doji, engloutissements haussier/baissier fournis par le backend ; date, confirmation de prix et volume séparés |
+| Analyse technique avancée | Triples creux/sommets, structures Elliott simplifiées, ATR, Bollinger, Donchian et SMA 20/50 ; points réellement inclus dans les scores |
+| Variables ML | Modèle retenu avec prix seuls ou variables enrichies, Brier de validation/test comparés quand disponibles ; anciens rapports compatibles |
+| Aide financière | Icônes d’information contextuelles : définition, exemple et limites ; lexique recherchable dans Accueil et Profil |
 | Calendrier | Séance, dernière clôture attendue, prochaine ouverture et motif renvoyés par le backend |
 | Analyse | Horizons journée/mois/année, composantes techniques/financières/informationnelles, preuves, snapshots et explication des variations |
 | Règles et saisonnalité | Créer une version immuable de règles ; statistiques mensuelles, trimestrielles et annuelles descriptives, sans points dans le score |
@@ -19,6 +23,18 @@ Application native Kotlin / Jetpack Compose, Android 8.0 minimum (API 26), cible
 | Réglages | Démonstration isolée, adresse du serveur, test de connexion et portefeuille |
 
 Aucun ordre de bourse n'est transmis. Les courbes de prix montrent le passé ; les scénarios n'inventent pas une prévision. Le score et la couverture des données ne sont pas des probabilités de gain.
+
+Les figures nécessitent le champ optionnel `patternAnalysis` du backend. Un serveur
+plus ancien conserve l’historique et affiche la détection indisponible. Les figures
+alimentent maintenant les scores V2 et les variables candidates du ML. Voir
+[les règles de bougies](../bourse-ai-engine/CANDLE_PATTERNS.md) et
+[la contribution aux scores et au ML](../bourse-ai-engine/TECHNICAL_ANALYSIS.md).
+
+Dans un actif, **Structure et indicateurs avancés** ouvre l’analyse de l’intervalle
+sélectionné, sous le graphique. Les scores opportunité/risque du résumé reposent sur
+la série journalière ; leurs points techniques effectifs et leur horizon sont
+indiqués. Intelligence affiche les structures, les définitions, la date à laquelle
+elles sont connues et la comparaison ML. Une fiabilité absente n’est pas inventée.
 
 ## Installer l'APK
 

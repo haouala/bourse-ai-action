@@ -7,10 +7,12 @@ on:
       - feature/data-quality-historical-backtesting
     paths:
       - 'bourse-ai-engine/**'
+      - 'contracts/**'
       - '.github/workflows/bourse-ai-ci.yml'
   pull_request:
     paths:
       - 'bourse-ai-engine/**'
+      - 'contracts/**'
       - '.github/workflows/bourse-ai-ci.yml'
   workflow_dispatch:
 

@@ -45,6 +45,9 @@ fun AnalysisScreen(store: AppStore, symbol: String, rulesetId: Long?, season: ()
             analysis.factors.forEach { factor -> Panel("${display(factor.text("category"))} · ${amount(factor.decimal("points"))} points") {
                 Text(statusLabel(factor.text("status")), style = MaterialTheme.typography.labelLarge)
                 Text(display(factor.text("explanation")))
+                if (factor.text("key") == "TECH_PATTERNS") factor.child("evidence")?.takeIf { it.child("analysis") != null }?.let {
+                    TechnicalAnalysisContent(it)
+                }
                 factor.field("evidence")?.let { evidence -> evidenceLinks(evidence).forEachIndexed { index, url -> Evidence(url, "Consulter la source ${index + 1}") }; JsonDetails(evidence) }
             } }
             analysis.raw.child("contributionChanges")?.takeIf { it.size() > 0 && analysis.raw.field("previousScore") != null }?.let { changes -> Panel("Pourquoi le score a changé") { changes.entrySet().forEach { (name, value) -> KeyValue(name, "${value.asString} points") } } }

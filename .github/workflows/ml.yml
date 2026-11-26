@@ -2,9 +2,9 @@ name: Python ML batch validation
 on:
   push:
     branches: [feature/ml-batch-demo]
-    paths: ['bourse-ai-ml/**', '.github/workflows/ml.yml']
+    paths: ['bourse-ai-ml/**', 'contracts/**', '.github/workflows/ml.yml']
   pull_request:
-    paths: ['bourse-ai-ml/**', '.github/workflows/ml.yml']
+    paths: ['bourse-ai-ml/**', 'contracts/**', '.github/workflows/ml.yml']
 permissions:
   contents: read
 concurrency:
