@@ -128,6 +128,38 @@ public class MarketCalendarService {
         return barCloses(assetId,List.of(opened),duration).getFirst();
     }
 
+    /** Daily labels must follow verified sessions. Closed dates may intervene; missing sessions may not. */
+    public List<Boolean> consecutiveDailyBars(long assetId,List<Instant> opens){
+        if(opens.isEmpty())return List.of();
+        LocalDate first=opens.getFirst().atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate last=opens.getLast().atZone(ZoneOffset.UTC).toLocalDate();
+        var rows=db.queryForList("""
+            SELECT p.calendar_code,s.session_date,s.opens_at
+            FROM asset_market_policies p LEFT JOIN market_sessions s ON s.calendar_code=p.calendar_code
+                AND s.session_date BETWEEN ? AND ?
+            WHERE p.asset_id=?
+            """,Date.valueOf(first),Date.valueOf(last),assetId);
+        boolean crypto=!rows.isEmpty()&&"CRYPTO_24_7".equals(rows.getFirst().get("calendar_code"));
+        Map<LocalDate,Boolean> dates=new HashMap<>();
+        for(var row:rows)if(row.get("session_date")!=null)
+            dates.put(((Date)row.get("session_date")).toLocalDate(),row.get("opens_at")!=null);
+        var result=new ArrayList<Boolean>();result.add(false);
+        for(int i=1;i<opens.size();i++){
+            Instant previous=opens.get(i-1),current=opens.get(i);
+            LocalDate from=previous.atZone(ZoneOffset.UTC).toLocalDate(),to=current.atZone(ZoneOffset.UTC).toLocalDate();
+            boolean adjacent=previous.equals(from.atStartOfDay(ZoneOffset.UTC).toInstant())
+                    &&current.equals(to.atStartOfDay(ZoneOffset.UTC).toInstant())&&to.isAfter(from);
+            if(crypto)adjacent&=to.equals(from.plusDays(1));
+            else{
+                adjacent&=Boolean.TRUE.equals(dates.get(from))&&Boolean.TRUE.equals(dates.get(to));
+                for(LocalDate d=from.plusDays(1);adjacent&&d.isBefore(to);d=d.plusDays(1))
+                    adjacent=Boolean.FALSE.equals(dates.get(d));
+            }
+            result.add(adjacent);
+        }
+        return result;
+    }
+
     /** Resolve a chart's session boundaries in one query, in input order. */
     public List<Instant> barCloses(long assetId,List<Instant> opens,Duration duration){
         if(opens.isEmpty())return List.of();

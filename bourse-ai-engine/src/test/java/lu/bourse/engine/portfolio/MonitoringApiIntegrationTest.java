@@ -60,6 +60,21 @@ class MonitoringApiIntegrationTest extends DatabaseIntegrationSupport {
         assertThat(alerts).hasSize(1);assertThat(alerts.getFirst().get("alert_type")).isEqualTo("MACD_REVIEW");
         assertThat(((Number)alerts.getFirst().get("position_id")).longValue()).isEqualTo(shortId);
     }
+    @Test void patternReportExcludesLiveCandleAndIsReturnedInChartResponse() throws Exception {
+        String[] closes={"109","107","105","101"};
+        for(int i=0;i<4;i++){
+            BigDecimal c=new BigDecimal(closes[i]);Instant time=NOW.minusSeconds((5-i)*900L);
+            db.update("INSERT INTO market_candles(asset_id,timeframe,open_time,open_price,high_price,low_price,close_price,volume,provider) VALUES (?,'15m',?,?,?,?,?,100,'TEST')",
+                    asset,Timestamp.from(time),c.add(BigDecimal.ONE),c.add(BigDecimal.valueOf(2)),c.subtract(BigDecimal.ONE),c);
+        }
+        db.update("INSERT INTO market_candles(asset_id,timeframe,open_time,open_price,high_price,low_price,close_price,volume,provider) VALUES (?,'15m',?,100,101.2,96,101,100,'TEST')",asset,Timestamp.from(NOW.minusSeconds(900)));
+        bar("15m",NOW,BigDecimal.valueOf(999));
+        mvc.perform(get("/api/v1/charts/TEST").param("timeframe","15m"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.candles.length()").value(5))
+                .andExpect(jsonPath("$.patternAnalysis.method").value("OHLC_PATTERNS_V1"))
+                .andExpect(jsonPath("$.patternAnalysis.patterns[0].code").value("HAMMER"))
+                .andExpect(jsonPath("$.patternAnalysis.patterns[0].confirmation").value("AWAITING_NEXT_BAR"));
+    }
     @Test void concurrentBuysCannotSpendTheSameCashTwice() throws Exception {
         long f=fund();
         try(var pool=Executors.newFixedThreadPool(2)){

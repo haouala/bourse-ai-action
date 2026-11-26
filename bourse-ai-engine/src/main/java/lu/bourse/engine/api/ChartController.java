@@ -19,7 +19,7 @@ public class ChartController {
     private record RawCandle(Instant openTime,Instant storedClose,BigDecimal open,BigDecimal high,BigDecimal low,BigDecimal close,BigDecimal volume,String provider) {
         Candle closeAt(Instant boundary){return new Candle(openTime,boundary,open,high,low,close,volume,provider);}
     }
-    public record Chart(String symbol,String timeframe,String currency,List<Candle> candles,FinancialIndicators.Result latestIndicators,String warning){}
+    public record Chart(String symbol,String timeframe,String currency,List<Candle> candles,FinancialIndicators.Result latestIndicators,String warning,CandlestickPatterns.Report patternAnalysis){}
     @GetMapping("/{symbol}")
     public Chart chart(@PathVariable String symbol,@RequestParam(defaultValue="15m")String timeframe,@RequestParam(defaultValue="250")int limit){
         if(symbol==null || !symbol.matches("[A-Za-z0-9._-]{1,40}") || limit<1 || limit>2000)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid chart query");
@@ -42,6 +42,14 @@ public class ChartController {
         }
         Collections.reverse(bars);
         var indicators=bars.size()>=35?FinancialIndicators.calculate(bars.stream().map(Candle::close).toList()):null;
-        return new Chart(normalized,tf.code(),currencies.getFirst(),bars,indicators,"Raw imported data; latency, corporate actions and execution prices must be verified");
+        var dailyContinuity=tf==Timeframe.D1?calendars.consecutiveDailyBars(asset,bars.stream().map(Candle::openTime).toList()):List.<Boolean>of();
+        var patternBars=new ArrayList<CandlestickPatterns.Bar>();
+        for(int i=0;i<bars.size();i++){
+            Candle b=bars.get(i);
+            boolean adjacent=i>0&&(tf==Timeframe.D1?dailyContinuity.get(i):b.openTime().equals(bars.get(i-1).closeTime()));
+            patternBars.add(new CandlestickPatterns.Bar(b.openTime(),b.closeTime(),b.open(),b.high(),b.low(),b.close(),b.volume(),b.provider(),adjacent));
+        }
+        return new Chart(normalized,tf.code(),currencies.getFirst(),bars,indicators,
+                "Raw imported data; latency, corporate actions and execution prices must be verified",CandlestickPatterns.analyze(patternBars));
     }
 }

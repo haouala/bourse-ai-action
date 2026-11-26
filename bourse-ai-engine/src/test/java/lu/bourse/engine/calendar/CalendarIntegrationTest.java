@@ -64,6 +64,17 @@ class CalendarIntegrationTest extends DatabaseIntegrationSupport {
         assertThat(calendars.quality(asset,friday,friday,true,sunday).usable()).isTrue();
         assertThat(calendars.quality(asset,friday,sunday,true,sunday).usable()).isTrue();
     }
+    @Test void dailyPatternsRequireConsecutiveSessionsButAllowHolidaysAndWeekends(){
+        var labels=List.of("2026-11-25","2026-11-27","2026-11-30","2026-12-02").stream()
+                .map(d->Instant.parse(d+"T00:00:00Z")).toList();
+        assertThat(calendars.consecutiveDailyBars(asset,labels)).containsExactly(false,true,true,false);
+        assertThat(calendars.consecutiveDailyBars(asset,List.of(Instant.parse("2029-01-02T00:00:00Z"),
+                Instant.parse("2029-01-03T00:00:00Z")))).containsExactly(false,false);
+        long crypto=watchlist.register(new WatchlistService.Entry("BTC-USD","Bitcoin","CRYPTO","USD","BTC/USD","GLOBAL","UTC","00:00","23:59",true));
+        assertThat(calendars.consecutiveDailyBars(crypto,labels)).containsExactly(false,false,false,false);
+        assertThat(calendars.consecutiveDailyBars(crypto,List.of(labels.getFirst(),labels.getFirst().plusSeconds(86400))))
+                .containsExactly(false,true);
+    }
     @Test void continuousCryptoStillRequiresFreshDataDuringWeekends(){
         long crypto=watchlist.register(new WatchlistService.Entry("BTC-USD","Bitcoin","CRYPTO","USD","BTC/USD","GLOBAL","UTC","00:00","23:59",true));
         Instant sunday=Instant.parse("2026-11-22T12:05:00Z");assertThat(calendars.quality(crypto,sunday.minusSeconds(300),null,false,sunday).usable()).isTrue();
