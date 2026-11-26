@@ -145,6 +145,9 @@ fun SettingsScreen(store: AppStore, openAdmin: () -> Unit = {}) {
         }
         message?.let { Note(it) }
         Note("La version de développement autorise HTTP pour les essais locaux. Utiliser un serveur protégé en HTTPS avant tout accès externe. Aucun ordre de bourse ne sera envoyé.")
-        Panel("Comprendre les résultats") { Text("Un score n’est pas une probabilité de gain. Les informations absentes ou périmées restent signalées. La saisonnalité reste descriptive.") }
+        Panel("Comprendre les résultats") {
+            Text("Un score n’est pas une probabilité de gain. Les informations absentes ou périmées restent signalées. La saisonnalité reste descriptive.")
+            FinancialGlossaryButton()
+        }
     }
 }

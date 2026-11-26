@@ -39,6 +39,8 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                     }
                     Text(dateLabel(last.closesAt.toString()))
                     Text("Source : ${display(last.provider)} · ${chart.candles.size} bougies")
+                    KeyValue("Prix de la bougie · O / H / B / C", "${priceText(last.open)} / ${priceText(last.high)} / ${priceText(last.low)} / ${priceText(last.close)} ${chart.currency}")
+                    KeyValue("Volume échangé", priceText(last.volume))
                 }
                 val dates = remember(chart.candles) { chart.candles.map { it.closesAt } }
                 val prices = remember(chart.candles) { chart.candles.map { it.close.toDouble() } }
@@ -49,6 +51,7 @@ fun AssetScreen(store: AppStore, symbol: String, explain: () -> Unit, calendar: 
                     MarketPlot("Cours et moyenne mobile", dates,
                         listOf(PlotLine("Clôture", prices, cyan), PlotLine("SMA 20", indicators.sma, RiskAccent)), chart.currency)
                 }
+                CandlePatternsPanel(chart)
                 Panel("MACD · 12, 26, 9", accent = ResearchAccent) {
                     Text("Violet · MACD   Orange · signal   Vert / rouge · écart au signal")
                     MarketPlot("MACD", dates, listOf(

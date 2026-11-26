@@ -76,6 +76,7 @@ fun HomeScreen(store: AppStore, refresh: Int, markets: () -> Unit, portfolio: ()
         }
         Panel("Guide de démarrage", accent = ResearchAccent) {
             OutlinedButton(onClick = guide) { Text("Lire le guide") }
+            FinancialGlossaryButton()
         }
     }
 }

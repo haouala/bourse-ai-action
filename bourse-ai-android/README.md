@@ -8,6 +8,8 @@ Application native Kotlin / Jetpack Compose, Android 8.0 minimum (API 26), cible
 |---|---|
 | Marché | Actions et cryptos, recherche, filtres, ajout, activation/pause ; plafonds de 100 actions et 30 cryptos actives |
 | Graphiques | Historique 15 min, 30 min, 1 h et 1 jour, petites valeurs crypto, OHLC et indicateurs calculés par le serveur |
+| Figures de bougies | Marteau, doji, engloutissements haussier/baissier fournis par le backend ; date, confirmation de prix et volume séparés |
+| Aide financière | Icônes d’information contextuelles : définition, exemple et limites ; lexique recherchable dans Accueil et Profil |
 | Calendrier | Séance, dernière clôture attendue, prochaine ouverture et motif renvoyés par le backend |
 | Analyse | Horizons journée/mois/année, composantes techniques/financières/informationnelles, preuves, snapshots et explication des variations |
 | Règles et saisonnalité | Créer une version immuable de règles ; statistiques mensuelles, trimestrielles et annuelles descriptives, sans points dans le score |
@@ -19,6 +21,10 @@ Application native Kotlin / Jetpack Compose, Android 8.0 minimum (API 26), cible
 | Réglages | Démonstration isolée, adresse du serveur, test de connexion et portefeuille |
 
 Aucun ordre de bourse n'est transmis. Les courbes de prix montrent le passé ; les scénarios n'inventent pas une prévision. Le score et la couverture des données ne sont pas des probabilités de gain.
+
+Les figures nécessitent le champ optionnel `patternAnalysis` du backend. Un serveur
+plus ancien conserve l’historique et affiche la détection indisponible. Les figures
+ne changent pas le score ni le ML. Voir [les règles et limites](../bourse-ai-engine/CANDLE_PATTERNS.md).
 
 ## Installer l'APK
 

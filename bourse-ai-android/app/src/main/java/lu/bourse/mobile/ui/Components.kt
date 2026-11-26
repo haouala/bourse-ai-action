@@ -49,10 +49,11 @@ fun Panel(title: String, accent: androidx.compose.ui.graphics.Color? = null, tra
         val background = if (accent == null) Modifier else Modifier.background(
             Brush.linearGradient(listOf(accent.copy(alpha = .22f), container)))
         Column(background.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (trailing == null) Text(title, style = MaterialTheme.typography.titleMedium)
+            val help = financialHelpFor(title)
+            if (trailing == null && help == null) Text(title, style = MaterialTheme.typography.titleMedium)
             else Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                trailing()
+                if (trailing != null) trailing() else if (help != null) FinancialHelp(help)
             }
             content()
         }
@@ -67,7 +68,12 @@ fun Note(text: String, error: Boolean = false) {
 }
 
 @Composable
-fun KeyValue(label: String, value: String) { Column { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) } }
+fun KeyValue(label: String, value: String) {
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) }
+        financialHelpFor(label)?.let { FinancialHelp(it) }
+    }
+}
 
 @Composable
 fun Remote(store: AppStore, key: String, empty: String = "Aucune donnée disponible", content: @Composable (JsonElement) -> Unit) {
@@ -123,7 +129,7 @@ fun EditorDialog(title: String, fields: List<InputField>, store: AppStore, opera
     AlertDialog(properties = DialogProperties(usePlatformDefaultWidth = false), modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.94f), onDismissRequest = { if (resource?.loading != true) onDismiss() }, title = { Text(title) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             fields.forEach { field ->
-                if (field.options.isEmpty()) OutlinedTextField(value = values[field.key].orEmpty(), onValueChange = { values[field.key] = it; validation = null }, label = { Text(field.label) }, keyboardOptions = KeyboardOptions(keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth().testTag("input-${field.key}"), singleLine = true)
+                if (field.options.isEmpty()) OutlinedTextField(value = values[field.key].orEmpty(), onValueChange = { values[field.key] = it; validation = null }, label = { Text(field.label) }, trailingIcon = financialHelpFor(field.label)?.let { term -> { FinancialHelp(term) } }, keyboardOptions = KeyboardOptions(keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth().testTag("input-${field.key}"), singleLine = true)
                 else {
                     Text(field.label, style = MaterialTheme.typography.labelLarge)
                     field.options.forEach { option -> Row { RadioButton(selected = values[field.key] == option, onClick = { values[field.key] = option }); TextButton(onClick = { values[field.key] = option }) { Text(field.optionLabels[option] ?: option) } } }

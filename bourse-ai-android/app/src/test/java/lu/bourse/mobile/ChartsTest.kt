@@ -41,4 +41,32 @@ class ChartsTest {
         val state = DemoTransport().request("GET", api("calendars", "assets", "NVDA", "state")).objectValue()
         assertEquals("DEMO_US", state.text("calendarCode")); assertEquals("CLOSED", state.text("marketState")); assertTrue(state.required("reason").contains("fictif"))
     }
+    @Test fun patternReportUsesClosedChartCandlesAndKeepsVolume() = runTest {
+        val chart = chartData(DemoTransport().request("GET", api("charts", "NVDA")))
+        val pattern = chart.patterns!!.patterns.single()
+        assertEquals("HAMMER", pattern.code)
+        assertEquals(chart.candles.last().closesAt, pattern.closesAt)
+        assertEquals("AWAITING_NEXT_BAR", pattern.confirmation)
+        assertNull(pattern.confirmationAt)
+        assertEquals(0, chart.candles.last().volume!!.compareTo(BigDecimal("200000")))
+        assertEquals(0, pattern.volumeRatio!!.compareTo(BigDecimal("2")))
+    }
+    @Test fun olderServerOrMalformedOptionalPatternsDoNotHidePrices() = runTest {
+        val raw = DemoTransport().request("GET", api("charts", "NVDA")).objectValue()
+        raw.remove("patternAnalysis")
+        assertNull(chartData(raw).patterns); assertEquals(48, chartData(raw).candles.size)
+        val broken = DemoTransport().request("GET", api("charts", "NVDA")).objectValue()
+        broken.child("patternAnalysis")!!.addProperty("method", "UNKNOWN_V2")
+        assertNull(chartData(broken).patterns); assertEquals(48, chartData(broken).candles.size)
+    }
+    @Test fun fabricatedPatternDateAndUnobservedConfirmationAreRejected() = runTest {
+        val raw = DemoTransport().request("GET", api("charts", "NVDA")).objectValue()
+        val pattern = raw.child("patternAnalysis")!!.list("patterns").single()
+        pattern.addProperty("confirmation", "PRICE_CONFIRMED")
+        pattern.addProperty("confirmationAt", "2099-01-01T00:00:00Z")
+        assertNull(chartData(raw).patterns)
+        pattern.addProperty("confirmation", "AWAITING_NEXT_BAR"); pattern.remove("confirmationAt")
+        pattern.addProperty("openTime", "2099-01-01T00:00:00Z")
+        assertNull(chartData(raw).patterns)
+    }
 }
