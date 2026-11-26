@@ -72,7 +72,8 @@ def impulse(points, sign):
     if not alternating(points, sign):
         return False
     v = [p[2]*sign for p in points]
-    return (v[2] > v[0] and v[3] > v[1] and v[4] > v[1] and v[5] > v[3]
+    return (v[1] > v[0] and v[3] > v[2] and v[5] > v[4] and v[2] < v[1] and v[4] < v[3]
+            and v[2] > v[0] and v[3] > v[1] and v[4] > v[1] and v[5] > v[3]
             and v[3]-v[2] >= min(v[1]-v[0], v[5]-v[4]))
 
 

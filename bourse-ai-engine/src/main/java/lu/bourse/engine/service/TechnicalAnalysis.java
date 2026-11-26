@@ -155,7 +155,8 @@ public final class TechnicalAnalysis {
     private static boolean impulse(List<Pivot> p,int sign) {
         if(!alternating(p,sign))return false;double[] v=p.stream().mapToDouble(x->x.price()*sign).toArray();
         double w1=v[1]-v[0],w3=v[3]-v[2],w5=v[5]-v[4];
-        return v[2]>v[0]&&v[3]>v[1]&&v[4]>v[1]&&v[5]>v[3]&&w3>=Math.min(w1,w5);
+        return w1>0&&w3>0&&w5>0&&v[2]<v[1]&&v[4]<v[3]
+                &&v[2]>v[0]&&v[3]>v[1]&&v[4]>v[1]&&v[5]>v[3]&&w3>=Math.min(w1,w5);
     }
     private static Signal elliott(List<Bar>b,List<Pivot> pivots,int sign,boolean correction) {
         int count=correction?9:6;if(b.size()<20||pivots.size()<count)return null;
