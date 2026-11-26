@@ -32,7 +32,8 @@ public class MarketModelResearchService {
 
     public record Result(String symbol, String runId, String horizon, String model, String provider, String currency,
                          Instant asOf, String status, Double estimate, int testCount, double brier,
-                         double constantBrier, String validationStatus) {}
+                         double constantBrier, String validationStatus,String featureSet,List<String> features,
+                         JsonNode featureComparison,String technicalStatus,String trainerVersion) {}
 
     public List<Result> latest(String rawSymbol) {
         String symbol = rawSymbol.toUpperCase(Locale.ROOT);
@@ -60,7 +61,11 @@ public class MarketModelResearchService {
                     row.getString("provider"), row.getString("currency"), asOf,
                     usable ? "RESEARCH_ONLY" : "STALE_OR_UNVERIFIED", usable ? row.getDouble("estimate") : null,
                     summary.required("testCount").asInt(), summary.required("testBrier").required(model).asDouble(),
-                    summary.required("constantBrier").asDouble(), summary.required("validationStatus").asText());
+                    summary.required("constantBrier").asDouble(), summary.required("validationStatus").asText(),
+                    summary.path("selectedFeatureSet").asText("PRICE_ONLY"),
+                    summary.path("features").isArray()?java.util.stream.StreamSupport.stream(summary.path("features").spliterator(),false).map(JsonNode::asText).toList():List.of(),
+                    summary.path("featureComparison"),summary.path("technicalStatus").asText("LEGACY_REPORT"),
+                    summary.path("trainerVersion").asText("market-classifiers-walk-forward-v1"));
         }, symbol, java.sql.Timestamp.from(now));
     }
 
